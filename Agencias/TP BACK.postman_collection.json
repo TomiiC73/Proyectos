@@ -1,0 +1,863 @@
+{
+	"info": {
+		"_postman_id": "d42dae18-54fa-4fa5-888c-57434ae32a84",
+		"name": "TP BACK",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "34653739"
+	},
+	"item": [
+		{
+			"name": "Crear prueba",
+			"request": {
+				"auth": {
+					"type": "oauth2",
+					"oauth2": [
+						{
+							"key": "tokenName",
+							"value": "Token Empleado",
+							"type": "string"
+						},
+						{
+							"key": "accessTokenUrl",
+							"value": "https://labsys.frc.utn.edu.ar/aim/realms/backend-tps/protocol/openid-connect/token",
+							"type": "string"
+						},
+						{
+							"key": "password",
+							"value": "g001-B-backend",
+							"type": "string"
+						},
+						{
+							"key": "username",
+							"value": "g001-B",
+							"type": "string"
+						},
+						{
+							"key": "grant_type",
+							"value": "password_credentials",
+							"type": "string"
+						},
+						{
+							"key": "clientSecret",
+							"value": "ZmiMMce6zh4xKHde1FFKbfkiThDyYpyn",
+							"type": "string"
+						},
+						{
+							"key": "clientId",
+							"value": "cliente-tpi",
+							"type": "string"
+						},
+						{
+							"key": "authUrl",
+							"value": "https://labsys.frc.utn.edu.ar/aim/auth",
+							"type": "string"
+						},
+						{
+							"key": "addTokenTo",
+							"value": "header",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJVcExod3d4cWk2QnRYSWpaMjNZeEtjUmp6U1MwTC1pNGRjWVh6cWl6MVhrIn0.eyJleHAiOjE3MzEyNzUxMTcsImlhdCI6MTczMTI3NDgxNywianRpIjoiMGY2NmIzZTctZjJlZS00M2EwLWI5MzYtYWM0MThiZGRkNzE0IiwiaXNzIjoiaHR0cHM6Ly9sYWJzeXMuZnJjLnV0bi5lZHUuYXIvYWltL3JlYWxtcy9iYWNrZW5kLXRwcyIsImF1ZCI6ImFjY291bnQiLCJzdWIiOiJmMDlmMDU3Zi04NjI5LTQ0M2UtOGFhOS1jMzFlMmYyZGU0M2QiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJjbGllbnRlLXRwaSIsInNlc3Npb25fc3RhdGUiOiIxMWE2NTAzYy1lOWFkLTQzZjktOGIwMS00MDllMWQwOTcwOTciLCJhY3IiOiIxIiwiYWxsb3dlZC1vcmlnaW5zIjpbIioiXSwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbIlZFSElDVUxPIiwiZGVmYXVsdC1yb2xlcy1iYWNrZW5kLXRwcyIsIm9mZmxpbmVfYWNjZXNzIiwidW1hX2F1dGhvcml6YXRpb24iXX0sInJlc291cmNlX2FjY2VzcyI6eyJhY2NvdW50Ijp7InJvbGVzIjpbIm1hbmFnZS1hY2NvdW50IiwibWFuYWdlLWFjY291bnQtbGlua3MiLCJ2aWV3LXByb2ZpbGUiXX19LCJzY29wZSI6InRwaS1zY29wZSBlbWFpbCBwcm9maWxlIiwic2lkIjoiMTFhNjUwM2MtZTlhZC00M2Y5LThiMDEtNDA5ZTFkMDk3MDk3IiwiZW1haWxfdmVyaWZpZWQiOnRydWUsIm5hbWUiOiJnMDAxLUMiLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJnMDAxLWMiLCJnaXZlbl9uYW1lIjoiZzAwMS1DIiwiZmFtaWx5X25hbWUiOiIiLCJhdXRob3JpdGllcyI6WyJWRUhJQ1VMTyIsImRlZmF1bHQtcm9sZXMtYmFja2VuZC10cHMiLCJvZmZsaW5lX2FjY2VzcyIsInVtYV9hdXRob3JpemF0aW9uIl19.CPRHJB7rhRo5PZ9eCJ3EHLLbOG1XIefSujd_KzHKDXhVs9jpmLyBaeiLa8C_GcFsoS0x56eX7MXX6ZS9dD5DS0D2pueWED8Qew414Olub_rV3Wqx44juEaG5zOe0rLuWOmM5j-YMD8sCjfCGAUU9lUybt_nwXpe4tDyU1mHsJnpXtp3LMbpQ6_9NVNY2MWKlu_gfLsF8ZDczanQU9lDsD3JcV8xjeHT_zg-q3kwy7jnPdVNF8tX5MqKpRm-kEJW60lcSY9KKV-emlTIiZNO2BR8dDq3niGUKe1WLpcqRarJBXzC9zZBWfP2FheaAbd79nCZsnguNVXklp1HePm1PEA",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n\t\"vehiculoId\": 4,\r\n\t\"interesadoId\": 1,\r\n\t\"empleadoId\": 2\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/pruebas/crear-prueba",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"pruebas",
+						"crear-prueba"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Pruebas en curso",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/pruebas/en-curso",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"pruebas",
+						"en-curso"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Finalizar prueba",
+			"request": {
+				"auth": {
+					"type": "oauth2",
+					"oauth2": [
+						{
+							"key": "password",
+							"value": "g001-B-backend",
+							"type": "string"
+						},
+						{
+							"key": "username",
+							"value": "g001-B",
+							"type": "string"
+						},
+						{
+							"key": "tokenName",
+							"value": "Token Empleado",
+							"type": "string"
+						},
+						{
+							"key": "accessTokenUrl",
+							"value": "https://labsys.frc.utn.edu.ar/aim/realms/backend-tps/protocol/openid-connect/token",
+							"type": "string"
+						},
+						{
+							"key": "grant_type",
+							"value": "password_credentials",
+							"type": "string"
+						},
+						{
+							"key": "clientSecret",
+							"value": "ZmiMMce6zh4xKHde1FFKbfkiThDyYpyn",
+							"type": "string"
+						},
+						{
+							"key": "clientId",
+							"value": "cliente-tpi",
+							"type": "string"
+						},
+						{
+							"key": "authUrl",
+							"value": "https://labsys.frc.utn.edu.ar/aim/auth",
+							"type": "string"
+						},
+						{
+							"key": "addTokenTo",
+							"value": "header",
+							"type": "string"
+						}
+					]
+				},
+				"method": "PUT",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/pruebas/finalizar?idPrueba=3&comentarios=ola",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"pruebas",
+						"finalizar"
+					],
+					"query": [
+						{
+							"key": "idPrueba",
+							"value": "3"
+						},
+						{
+							"key": "comentarios",
+							"value": "ola"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Agregar posicion",
+			"request": {
+				"auth": {
+					"type": "oauth2",
+					"oauth2": [
+						{
+							"key": "tokenName",
+							"value": "Token Vehiculo",
+							"type": "string"
+						},
+						{
+							"key": "password",
+							"value": "g001-C-backend",
+							"type": "string"
+						},
+						{
+							"key": "username",
+							"value": "g001-C",
+							"type": "string"
+						},
+						{
+							"key": "accessTokenUrl",
+							"value": "https://labsys.frc.utn.edu.ar/aim/realms/backend-tps/protocol/openid-connect/token",
+							"type": "string"
+						},
+						{
+							"key": "grant_type",
+							"value": "password_credentials",
+							"type": "string"
+						},
+						{
+							"key": "clientSecret",
+							"value": "ZmiMMce6zh4xKHde1FFKbfkiThDyYpyn",
+							"type": "string"
+						},
+						{
+							"key": "clientId",
+							"value": "cliente-tpi",
+							"type": "string"
+						},
+						{
+							"key": "authUrl",
+							"value": "https://labsys.frc.utn.edu.ar/aim/auth",
+							"type": "string"
+						},
+						{
+							"key": "addTokenTo",
+							"value": "header",
+							"type": "string"
+						}
+					]
+				},
+				"method": "PATCH",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n\t\"patente\": \"ZZ001GG\",\r\n\t\"latitud\": 41.99991,\r\n\t\"longitud\": 2.9999993\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/posiciones/agregar",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"posiciones",
+						"agregar"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Saludo pruebas",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/api/pruebas/saludo",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"pruebas",
+						"saludo"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Crear promociones",
+			"request": {
+				"auth": {
+					"type": "oauth2",
+					"oauth2": [
+						{
+							"key": "password",
+							"value": "g001-B-backend",
+							"type": "string"
+						},
+						{
+							"key": "username",
+							"value": "g001-B",
+							"type": "string"
+						},
+						{
+							"key": "tokenName",
+							"value": "Token Empleadoo",
+							"type": "string"
+						},
+						{
+							"key": "accessTokenUrl",
+							"value": "https://labsys.frc.utn.edu.ar/aim/realms/backend-tps/protocol/openid-connect/token",
+							"type": "string"
+						},
+						{
+							"key": "grant_type",
+							"value": "password_credentials",
+							"type": "string"
+						},
+						{
+							"key": "clientSecret",
+							"value": "ZmiMMce6zh4xKHde1FFKbfkiThDyYpyn",
+							"type": "string"
+						},
+						{
+							"key": "clientId",
+							"value": "cliente-tpi",
+							"type": "string"
+						},
+						{
+							"key": "authUrl",
+							"value": "https://labsys.frc.utn.edu.ar/aim/auth",
+							"type": "string"
+						},
+						{
+							"key": "addTokenTo",
+							"value": "header",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n\t\"mensaje\": \"Los autos tienen un 5% de descuento a partir de mañana\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/notificaciones/crear-promocion",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"notificaciones",
+						"crear-promocion"
+					],
+					"query": [
+						{
+							"key": "mensaje",
+							"value": "Los autos tienen un 5% de descuento a partir de mañana",
+							"disabled": true
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Saludo notificaciones",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/api/notificaciones/saludo",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"notificaciones",
+						"saludo"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Verificar posicion",
+			"request": {
+				"auth": {
+					"type": "oauth2",
+					"oauth2": [
+						{
+							"key": "password",
+							"value": "g001-B-backend",
+							"type": "string"
+						},
+						{
+							"key": "username",
+							"value": "g001-B",
+							"type": "string"
+						},
+						{
+							"key": "tokenName",
+							"value": "Token Empleado",
+							"type": "string"
+						},
+						{
+							"key": "accessTokenUrl",
+							"value": "https://labsys.frc.utn.edu.ar/aim/realms/backend-tps/protocol/openid-connect/token",
+							"type": "string"
+						},
+						{
+							"key": "grant_type",
+							"value": "password_credentials",
+							"type": "string"
+						},
+						{
+							"key": "clientSecret",
+							"value": "ZmiMMce6zh4xKHde1FFKbfkiThDyYpyn",
+							"type": "string"
+						},
+						{
+							"key": "clientId",
+							"value": "cliente-tpi",
+							"type": "string"
+						},
+						{
+							"key": "authUrl",
+							"value": "https://labsys.frc.utn.edu.ar/aim/auth",
+							"type": "string"
+						},
+						{
+							"key": "addTokenTo",
+							"value": "header",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n\t\"legajo\": 1,\r\n\t\"patente\": \"ZZ001GG\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/posiciones/verificar",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"posiciones",
+						"verificar"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Crear noti",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n\t\"legajo\": 3,\r\n\t\"mensaje\": \"el salame chocoo\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8083/api/notificaciones/crear",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8083",
+					"path": [
+						"api",
+						"notificaciones",
+						"crear"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Reporte incidentes",
+			"request": {
+				"auth": {
+					"type": "oauth2",
+					"oauth2": [
+						{
+							"key": "password",
+							"value": "g001-A-backend",
+							"type": "string"
+						},
+						{
+							"key": "username",
+							"value": "g001-A",
+							"type": "string"
+						},
+						{
+							"key": "tokenName",
+							"value": "Token Admin",
+							"type": "string"
+						},
+						{
+							"key": "accessTokenUrl",
+							"value": "https://labsys.frc.utn.edu.ar/aim/realms/backend-tps/protocol/openid-connect/token",
+							"type": "string"
+						},
+						{
+							"key": "grant_type",
+							"value": "password_credentials",
+							"type": "string"
+						},
+						{
+							"key": "clientSecret",
+							"value": "ZmiMMce6zh4xKHde1FFKbfkiThDyYpyn",
+							"type": "string"
+						},
+						{
+							"key": "clientId",
+							"value": "cliente-tpi",
+							"type": "string"
+						},
+						{
+							"key": "authUrl",
+							"value": "https://labsys.frc.utn.edu.ar/aim/auth",
+							"type": "string"
+						},
+						{
+							"key": "addTokenTo",
+							"value": "header",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/api/reportes/incidentes",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"reportes",
+						"incidentes"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Incidente empleados",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "oauth2",
+					"oauth2": [
+						{
+							"key": "password",
+							"value": "g001-A-backend",
+							"type": "string"
+						},
+						{
+							"key": "username",
+							"value": "g001-A",
+							"type": "string"
+						},
+						{
+							"key": "tokenName",
+							"value": "Token Admin",
+							"type": "string"
+						},
+						{
+							"key": "accessTokenUrl",
+							"value": "https://labsys.frc.utn.edu.ar/aim/realms/backend-tps/protocol/openid-connect/token",
+							"type": "string"
+						},
+						{
+							"key": "grant_type",
+							"value": "password_credentials",
+							"type": "string"
+						},
+						{
+							"key": "clientSecret",
+							"value": "ZmiMMce6zh4xKHde1FFKbfkiThDyYpyn",
+							"type": "string"
+						},
+						{
+							"key": "clientId",
+							"value": "cliente-tpi",
+							"type": "string"
+						},
+						{
+							"key": "authUrl",
+							"value": "https://labsys.frc.utn.edu.ar/aim/auth",
+							"type": "string"
+						},
+						{
+							"key": "addTokenTo",
+							"value": "header",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/reportes/empleado?nombreEmpleado=Mario&apellidoEmpleado=Pruebas",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"reportes",
+						"empleado"
+					],
+					"query": [
+						{
+							"key": "nombreEmpleado",
+							"value": "Mario"
+						},
+						{
+							"key": "apellidoEmpleado",
+							"value": "Pruebas"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Reporte km recorridos",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "oauth2",
+					"oauth2": [
+						{
+							"key": "password",
+							"value": "g001-A-backend",
+							"type": "string"
+						},
+						{
+							"key": "username",
+							"value": "g001-A",
+							"type": "string"
+						},
+						{
+							"key": "tokenName",
+							"value": "Token Admin",
+							"type": "string"
+						},
+						{
+							"key": "accessTokenUrl",
+							"value": "https://labsys.frc.utn.edu.ar/aim/realms/backend-tps/protocol/openid-connect/token",
+							"type": "string"
+						},
+						{
+							"key": "grant_type",
+							"value": "password_credentials",
+							"type": "string"
+						},
+						{
+							"key": "clientSecret",
+							"value": "ZmiMMce6zh4xKHde1FFKbfkiThDyYpyn",
+							"type": "string"
+						},
+						{
+							"key": "clientId",
+							"value": "cliente-tpi",
+							"type": "string"
+						},
+						{
+							"key": "authUrl",
+							"value": "https://labsys.frc.utn.edu.ar/aim/auth",
+							"type": "string"
+						},
+						{
+							"key": "addTokenTo",
+							"value": "header",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n\t\"patente\": \"ZZ000ZZ\",\r\n\t\"fechaHoraInicio\": \"2024-11-11 13:42:18\",\r\n\t\"fechaHoraFin\": \"2024-11-11 13:42:18\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/reportes/distancia",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"reportes",
+						"distancia"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Reporte detalle pruebas",
+			"request": {
+				"auth": {
+					"type": "oauth2",
+					"oauth2": [
+						{
+							"key": "password",
+							"value": "g001-A-backend",
+							"type": "string"
+						},
+						{
+							"key": "username",
+							"value": "g001-A",
+							"type": "string"
+						},
+						{
+							"key": "tokenName",
+							"value": "Token Admin",
+							"type": "string"
+						},
+						{
+							"key": "accessTokenUrl",
+							"value": "https://labsys.frc.utn.edu.ar/aim/realms/backend-tps/protocol/openid-connect/token",
+							"type": "string"
+						},
+						{
+							"key": "grant_type",
+							"value": "password_credentials",
+							"type": "string"
+						},
+						{
+							"key": "clientSecret",
+							"value": "ZmiMMce6zh4xKHde1FFKbfkiThDyYpyn",
+							"type": "string"
+						},
+						{
+							"key": "clientId",
+							"value": "cliente-tpi",
+							"type": "string"
+						},
+						{
+							"key": "authUrl",
+							"value": "https://labsys.frc.utn.edu.ar/aim/auth",
+							"type": "string"
+						},
+						{
+							"key": "addTokenTo",
+							"value": "header",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/api/reportes/detalle-pruebas/1",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"reportes",
+						"detalle-pruebas",
+						"1"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
