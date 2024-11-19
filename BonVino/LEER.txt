@@ -1,0 +1,3 @@
+Este fue un trabajo practico integrador de la materia diseño de sistemas de información, en la que el dominio era unas bodegas de vinos que necesitaban realizar un ranking de los 10 mejores vinos según ciertos requisitos (que sea de somelier y que este dentro de unas fechas determinadas la reseña), en la que se aplico el patrón iterador para realizar la búsqueda de vinos y reseñas.
+
+Gracias
