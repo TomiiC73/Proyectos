@@ -1,0 +1,94 @@
+# Microservicio de Notificaciones - Dependencias de Python
+# Archivo: requirements.txt
+
+# === FRAMEWORK WEB ===
+fastapi==0.118.0
+# Se agrega versión actualizada de starlette de la cual depende fastapi
+starlette==0.40.0
+uvicorn[standard]==0.24.0
+
+# === VALIDACIÓN DE DATOS ===
+pydantic[email]==2.5.2
+typing-extensions==4.8.0
+
+# === COMUNICACIÓN HTTP ===
+httpx==0.25.2
+requests==2.31.0
+
+# === EMAIL ===
+aiosmtplib==3.0.1
+email-validator==2.1.0.post1
+
+# === SMS (TWILIO) ===
+twilio==8.10.3
+
+# === PUSH NOTIFICATIONS (FIREBASE) ===
+firebase-admin==6.2.0
+google-auth==2.23.4
+
+# === PROGRAMACIÓN DE TAREAS ===
+APScheduler==3.10.4
+
+# === BASE DE DATOS ===
+# MongoDB (opcional)
+pymongo==4.6.0
+motor==3.3.2
+
+# PostgreSQL (opcional)
+asyncpg==0.29.0
+sqlalchemy[asyncio]==2.0.23
+
+# === LOGGING Y MONITOREO ===
+structlog==23.2.0
+colorama==0.4.6
+
+# === FECHA Y HORA ===
+python-dateutil==2.8.2
+pytz==2023.3
+
+# === WEBSOCKETS ===
+websockets==12.0
+
+# === UTILITARIOS ===
+python-dotenv==1.0.0
+jinja2==3.1.2
+
+# === TESTING ===
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2  # Para testing de FastAPI
+
+# === DESARROLLO ===
+black==23.11.0
+flake8==6.1.0
+mypy==1.7.1
+
+# === CORS Y MIDDLEWARE ===
+# Ya incluido en FastAPI, pero se puede especificar
+python-jose[cryptography]==3.4.0
+# Dependencia transitiva de python-jose
+ecdsa==0.19.1
+
+# === CONCURRENCIA ===
+asyncio-mqtt==0.16.1  # Para MQTT si se necesita
+
+# === FORMATO JSON AVANZADO ===
+orjson==3.9.15
+
+# === UTILIDADES DE TIEMPO ===
+croniter==2.0.1
+
+# === VARIABLES DE ENTORNO ===
+python-decouple==3.8
+
+# === COMPRESIÓN ===
+python-multipart==0.0.18
+
+# === AUTENTICACIÓN (OPCIONAL) ===
+passlib[bcrypt]==1.7.4
+
+# === REDIS (OPCIONAL PARA CACHE) ===
+redis==5.0.1
+aioredis==2.0.1
+
+# Nota: Instalar con: pip install -r requirements.txt

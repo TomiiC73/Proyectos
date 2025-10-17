@@ -1,0 +1,255 @@
+services:
+  db:
+    image: todos-db:latest
+    container_name: todos-db
+    restart: unless-stopped
+    env_file:
+      - ./db/.env
+    secrets:
+      - db_root_password
+      - db_password
+    volumes:
+      # A traves de este volumen se persisten los datos en la BD
+      - db_data:/var/lib/mysql
+    networks:
+      - app-network
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 15s
+      retries: 8
+      start_period: 30s
+    # ASIGNACIÓN AUTOMÁTICA DE RECURSOS - BASE DE DATOS
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0' # Máximo 2 CPUs para DB (requiere más poder)
+          memory: 1G # Máximo 1GB RAM para MySQL
+          pids: 100 # Límite de procesos
+        reservations:
+          cpus: '1.0' # Mínimo 1 CPU reservada
+          memory: 512M # Mínimo 512MB RAM reservada
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 120s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+
+  # API Backend
+  api:
+    image: todos-api:latest
+    container_name: todos-api
+    restart: unless-stopped
+    env_file:
+      - ./api/.env
+    secrets:
+      - db_password
+      - flask_secret_key
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/')" ]
+      interval: 15s
+      timeout: 8s
+      retries: 4
+      start_period: 25s
+
+    # ASIGNACIÓN AUTOMÁTICA DE RECURSOS - API BACKEND
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0' # Máximo 1 CPU para API Flask
+          memory: 512M # Máximo 512MB RAM
+          pids: 50 # Límite de procesos
+        reservations:
+          cpus: '0.5' # Mínimo 0.5 CPU reservada
+          memory: 256M # Mínimo 256MB RAM reservada
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 60s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+
+  # Microservicio de Notificaciones
+  notifications:
+    #build:
+    #context: ./notifications
+    #dockerfile: Dockerfile
+    image: todos-notifications:latest
+    container_name: todos-notifications
+    restart: unless-stopped
+    env_file:
+      - ./notifications/.env
+    secrets:
+      - smtp_username
+      - smtp_password
+    ports:
+      - "8001:8001" 
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8001/health" ]
+      interval: 15s
+      timeout: 8s
+      retries: 4
+      start_period: 20s
+
+    # ASIGNACIÓN AUTOMÁTICA DE RECURSOS - NOTIFICACIONES
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5' # Máximo 0.5 CPU para FastAPI
+          memory: 256M # Máximo 256MB RAM para emails
+          pids: 30 # Límite de procesos
+        reservations:
+          cpus: '0.2' # Mínimo 0.2 CPU reservada
+          memory: 128M # Mínimo 128MB RAM reservada
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 60s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+
+  # Frontend Web
+  web:
+    #build:
+    #context: ./web
+    #dockerfile: Dockerfile
+    image: todos-web:latest
+    container_name: todos-web
+    restart: unless-stopped
+    env_file:
+      - ./web/.env
+    networks:
+      - app-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
+      interval: 15s
+      timeout: 8s
+      retries: 4
+      start_period: 20s
+      
+    # ASIGNACIÓN AUTOMÁTICA DE RECURSOS - WEB FRONTEND
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5' 
+          memory: 256M 
+          pids: 20
+        reservations:
+          cpus: '0.2' 
+          memory: 128M 
+      restart_policy:
+        condition: on-failure
+        delay: 3s
+        max_attempts: 3
+        window: 60s
+
+  # Nginx Reverse Proxy
+  nginx:
+    build:
+      context: ./nginx/nginx
+      dockerfile: Dockerfile
+    #image: todos-nginx:latest
+    container_name: todos-nginx
+    restart: unless-stopped
+    env_file:
+      - ./nginx/.env
+    ports:
+      - "80:80"
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost/health" ]
+      interval: 15s
+      timeout: 8s
+      retries: 4
+      start_period: 15s
+    # ASIGNACIÓN AUTOMÁTICA DE RECURSOS - NGINX PROXY
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5' # Máximo 0.5 CPU para Nginx (gateway crítico)
+          memory: 128M # Máximo 128MB RAM para proxy
+          pids: 50 # Límite de procesos worker
+        reservations:
+          cpus: '0.2' # Mínimo 0.2 CPU reservada
+          memory: 64M # Mínimo 64MB RAM reservada
+      restart_policy:
+        condition: on-failure
+        delay: 2s
+        max_attempts: 5
+        window: 120s
+    security_opt:
+      - no-new-privileges:true
+
+# RED OPTIMIZADA PARA PERFORMANCE
+networks:
+  app-network:
+    driver: bridge
+    name: todos-network
+    driver_opts:
+      com.docker.network.bridge.name: todos-bridge
+      com.docker.network.driver.mtu: 1500
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
+          gateway: 172.30.0.1
+
+# VOLÚMENES OPTIMIZADOS PARA PERFORMANCE
+volumes:
+  db_data:
+    driver: local
+    name: todos-db-data
+  # Cache compartido para optimizar builds
+  build_cache:
+    driver: local
+    name: todos-build-cache
+
+secrets:
+  db_root_password:
+    file: ./secrets/db_root_password.txt
+  db_password:
+    file: ./secrets/db_password.txt
+  smtp_username:
+    file: ./secrets/smtp_username.txt
+  smtp_password:
+    file: ./secrets/smtp_password.txt
+  flask_secret_key:
+    file: ./secrets/flask_secret_key.txt
+

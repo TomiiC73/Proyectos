@@ -1,0 +1,62 @@
+/* Bouncy Loader Styles */
+.bouncy-loader-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.bouncy-loader-container.small {
+  padding: 10px;
+}
+
+.bouncy-loader-container.large {
+  padding: 40px;
+}
+
+.bouncy-loader-container.inline {
+  display: inline-flex;
+  padding: 5px;
+}
+
+/* Animation container styles */
+.loading-with-bouncy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  gap: 15px;
+}
+
+.loading-with-bouncy .loading-text {
+  color: #7f8c8d;
+  font-size: 1.1rem;
+  font-weight: 500;
+  text-align: center;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .bouncy-loader-container {
+    padding: 15px;
+  }
+  
+  .loading-with-bouncy {
+    min-height: 150px;
+  }
+  
+  .loading-with-bouncy .loading-text {
+    font-size: 1rem;
+  }
+}
