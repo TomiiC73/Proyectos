@@ -27,10 +27,10 @@ Fomentar el trabajo en equipo, la documentación clara y la presentación de res
 ## Arquitectura del Sistema
 
 ### Arquitectura Simplificada
-![Arquitectura Simplificada](./ARQ-SIMPLIFICADA.png)
+![Arquitectura Simplificada](./media/ARQ-SIMPLIFICADA.png)
 
 ### Arquitectura Docker Completa
-![Arquitectura Docker](./ARQUITECTURA%20DOCKER.png)
+![Arquitectura Docker](./media/ARQUITECTURA%20DOCKER.png)
 
 ## Stack Tecnológico
 

@@ -33,7 +33,9 @@ de practicidad). Comando que utilizaremos:
 
 #### Trivy:
 Realizamos el primer análisis de trivy a esta imagen:
+
 ![alt text](media/image45.png)
+
 Partimos de una imagen con 40 vulnerabilidades HIGH, todas apuntando a problemas en la imagen base de Debian que tiene la imagen python:3.11-slim
 
 Para solventar esto seguimos el siguiente recorrido:
@@ -43,7 +45,9 @@ Para solventar esto seguimos el siguiente recorrido:
     versión disponible del tag (no parcheandola) trae consigo la
     resolución de estas vulnerabilidades.\
     Armamos de nuevo la imagen y ejecutamos el test:
+
     ![alt text](media/image46.png)
+
     Sin embargo, al ejecutar un nuevo análisis nos resulta en 127
     vulnerabilidades HIGH y 4 CRITICAL.
 
@@ -55,7 +59,7 @@ Para solventar esto seguimos el siguiente recorrido:
     slim a alpine.\
     Sorprendentemente esto redujo las vulnerabilidades de tipo HIGH como
     CRITICAL a 0, quedando solamente una vulnerabilidad de tipo LOW y
-    otras 5 de tipo MEDIUM.
+    otras 5 de tipo MEDIUM en el caso de que hagamos un scanner sin filtrar por los otros dos tipos de vulnerabilidades.
 
 Conclusión: El utilizar una imagen base mucho más liviana con menos
 dependencias para construir la imagen resulta en un uso más consciente
@@ -63,6 +67,9 @@ de las dependencias y herramientas que se utilizarán para construir
 dicha imagen, además de reducir notablemente la superficie de ataque ya
 que no tiene tantas dependencias. Además, al ser más liviana permite un
 arranque más rápido y un menor uso de memoria.
+
+*Nota*: Puede surjir confusión del por qué aparece debian 12.12 en el trivy si estamos usando una imagen base de python:3.11-alpine, y esto se debe a que esa es la imagen base de nuestra imagen base, es decir, de la imagen de python.
+
 
 
 #### Checkov:
@@ -159,7 +166,7 @@ Y ya con eso bastaría para hacer pasar el test.
 **Resolviendo CKV_DOCKER_3:**
 ![](./media/image11.png)
 
-No ocuparnos de este test si representa una situación mas riesgosa, ya que al no tener declarado en nuestro Dockerfile (y en la imagen que se construirá de este) un usuario, Docker le asignaría al contenedor el usuario por defecto de la imagen base con la que se construyó, que en la mayoría de los casos es root. Esto viola el principio de menor privilegio permitiendo a un atacante que pueda explotar alguna vulnerabilidad y acceder a nuestro contenedor tener permisos de administrador. Ganaría un control total del contenedor y, en el peor de los casos, podría escaparse de este y afectar al host que hospeda, no solo al propio contenedor, sinó a todos los que controla el host.
+No ocuparnos de este test si representa una situación mas riesgosa, ya que al no tener declarado en nuestro Dockerfile (y en la imagen que se construirá de este) un usuario, Docker le asignaría al contenedor el usuario por defecto de la imagen base con la que se construyó, que en la mayoría de los casos es root. Esto viola el principio de *menor privilegio* permitiendo a un atacante que pueda explotar alguna vulnerabilidad y acceder a nuestro contenedor tener permisos de administrador. Ganaría un control total del contenedor y, en el peor de los casos, podría escaparse de este y afectar al host que hospeda, no solo al propio contenedor, sinó a todos los que controla el host.
 
 Para resolverlo le asignaremos un usuario sin privilegios por defecto que dispone nginx y se lo asignaremos al contenedor:
 ```DOCKERFILE
@@ -235,7 +242,9 @@ Para tratar de solventar la vulnerabilidad se intentaron diversas estrategias:
 
 1.  Cambiamos de una imagen mysql:9.4 a otra imagen oficial pero mas liviana basada en mysql, mariadb:10.11.14-jammy. Esto con el objetivo de reducir la imagen y ver si se reducían estas vulnerabilidades, o aumentaban en el peor de los casos.\
     En nuestro caso aumentaron:\
+
     ![](./media/image1.png)\
+    
     Estas vulnerabilidades provienen de una biblioteca llamada "stlib" y otra dependencias del binario "gosu" que fue compilado en una versión antigua de Go lo que lo hace especialmente vulnerable a una gran cantidad de fallos de seguridad que ya fueron parcheados.
 
 2.  Luego de sucesivos intentos fallidos de eliminar estas vulnerabilidades de la imagen base de mariadb, volvimos a mysql:9.4 para tener de nuevo 1 vulnerabilidad de tipo HIGH (aunque 500MB mas de peso).

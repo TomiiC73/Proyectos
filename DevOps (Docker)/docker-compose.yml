@@ -101,8 +101,6 @@ services:
     secrets:
       - smtp_username
       - smtp_password
-    ports:
-      - "8001:8001" 
     depends_on:
       db:
         condition: service_healthy
@@ -161,12 +159,12 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5' 
-          memory: 256M 
+          cpus: '0.5'
+          memory: 256M
           pids: 20
         reservations:
-          cpus: '0.2' 
-          memory: 128M 
+          cpus: '0.2'
+          memory: 128M
       restart_policy:
         condition: on-failure
         delay: 3s
@@ -252,4 +250,3 @@ secrets:
     file: ./secrets/smtp_password.txt
   flask_secret_key:
     file: ./secrets/flask_secret_key.txt
-

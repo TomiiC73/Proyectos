@@ -17,7 +17,7 @@ COPY . .
 RUN npm run build
 
 # Imagen final con nginx
-FROM nginx:1.25-alpine
+FROM nginx:1.29-alpine
 
 # Instalar curl para healthcheck
 RUN apk add --no-cache curl

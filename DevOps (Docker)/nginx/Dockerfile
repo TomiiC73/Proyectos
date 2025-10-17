@@ -1,5 +1,5 @@
 # Imagen base liviana de nginx
-FROM nginx:1.25-alpine
+FROM nginx:1.29-alpine
 
 # Instalar curl para healthcheck y gettext para envsubst
 RUN apk add --no-cache curl gettext
