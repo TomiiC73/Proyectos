@@ -1,52 +1,48 @@
-# TPI Grupo 63
+# Sistema de Gestión de Agencias de Vehículos
 
+Sistema backend para gestión de pruebas de vehículos en agencias automotrices. Implementa una arquitectura de microservicios con Spring Boot y Spring Cloud.
 
+## 📋 Descripción
 
-## Getting started
+Aplicación que permite a las agencias de vehículos gestionar y realizar pruebas de diferentes modelos. El sistema incluye endpoints para todas las operaciones necesarias y cuenta con un sistema completo de autenticación y autorización.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## 🏗️ Arquitectura
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+El proyecto está dividido en tres microservicios:
 
-## Add your files
+- **Api-Gateway**: Puerta de enlace que gestiona el enrutamiento a los diferentes servicios
+- **Pruebas**: Servicio principal que gestiona las pruebas de vehículos, posiciones, configuraciones de APIs externas, etc.
+- **Notificaciones**: Servicio dedicado a la gestión y envío de notificaciones
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+## 🔧 Tecnologías
+
+- **Framework:** Spring Boot
+- **Gateway:** Spring Cloud Gateway
+- **Seguridad:** OAuth2 Resource Server
+- **Base de Datos:** JPA/Hibernate
+- **Build Tool:** Maven
+
+## 🚀 Uso
+
+Se incluye una colección de Postman (`TP BACK.postman_collection.json`) con todos los endpoints disponibles para facilitar las pruebas del sistema. La colección incluye las configuraciones necesarias para la autenticación.
+
+## 📁 Estructura
 
 ```
-cd existing_repo
-git remote add origin https://labsys.frc.utn.edu.ar/gitlab/backend-app/alumnos/portafolios/2024/3k1/tpi-grupo-63.git
-git branch -M main
-git push -uf origin main
+Api-Gateway/     - Servicio de gateway
+Notificaciones/  - Servicio de notificaciones
+Pruebas/         - Servicio principal de gestión de pruebas
 ```
 
-## Integrate with your tools
+## 🔐 Seguridad
 
-- [ ] [Set up project integrations](https://labsys.frc.utn.edu.ar/gitlab/backend-app/alumnos/portafolios/2024/3k1/tpi-grupo-63/-/settings/integrations)
+El sistema implementa OAuth2 para asegurar todos los endpoints y gestionar la autenticación y autorización de usuarios.
 
-## Collaborate with your team
+---
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+## 📝 Notas del Proyecto
 
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+El trabajo consta de una agencia que quiere llevar a cabo una serie de acciones con las pruebas de cada vehículo. Se puede observar que posee endpoints para realizar cada tarea. Se adjunta el enunciado del trabajo para tener más claridad sobre la resolución. También el archivo "TP BACK.postman_collection" es un archivo de Postman para probar todos y cada uno de los endpoints, y posee todo lo necesario para llevar a cabo el aspecto de la seguridad de la aplicación.
 
 ## Suggestions for a good README
 
