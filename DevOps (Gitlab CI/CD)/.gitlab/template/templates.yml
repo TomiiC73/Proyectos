@@ -1,0 +1,52 @@
+# ================================================
+# TEMPLATES REUTILIZABLES
+# ================================================
+# Templates compartidos entre todos los jobs del pipeline
+# usando 'extends' de GitLab CI
+# ================================================
+
+# Template para jobs de escaneo (secrets, lint)
+.scan_template:
+  tags:                                   # Runner a usar
+    - $SCAN_RUNNER_TAG                    # Runner sin Docker (más rápido para scans)
+  image: python:3.11-alpine               # Imagen Python 3.11 en Alpine (ligera)
+  before_script:                          # Antes de cada script
+    - apk add --no-cache git curl         # Instalar git y curl (herramientas comunes)
+
+# Template para Docker (usando Docker del host, no DIND)
+# Hace login en Docker Hub (para evitar rate limit) y en el registry privado
+.docker_template:
+  tags:                                   # Runner a usar
+    - $BUILD_RUNNER_TAG                   # Runner con Docker (para builds)
+  before_script:                          # Antes de cada script
+    - 'echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin || echo "WARNING: Docker Hub login failed, continuing..."'  # Login a Docker Hub (opcional, || echo no falla si no hay credenciales)
+    - 'echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$REGISTRY_URL"'  # Login al registry privado (REQUERIDO para push)
+
+# Template para Checkov (IaC Security)
+.checkov_template:
+  stage: iac-scan                         # Etapa iac-scan (4ta etapa)
+  tags:                                   # Runner
+    - $SCAN_RUNNER_TAG                    # Sin Docker
+  image:                                  # Imagen Docker
+    name: bridgecrew/checkov:latest       # Imagen oficial de Checkov (Bridgecrew/Prisma Cloud)
+    entrypoint: [""]                      # Sobrescribe entrypoint (necesario para GitLab CI)
+  before_script:                          # Antes de script
+    - checkov --version                   # Muestra versión de Checkov
+    - pwd                                 # Muestra directorio actual
+    - ls -la                              # Lista archivos
+  artifacts:                              # Artifacts (configuración común para todos los jobs Checkov)
+    when: always                          # Guardar siempre
+    expire_in: 1 week                     # 1 semana
+
+# Template para Trivy Image Scanning
+.image_scan_template:
+  stage: image-scan                       # Etapa image-scan (6ta etapa)
+  image:                                  # Imagen Docker
+    name: aquasec/trivy:latest            # Imagen oficial de Trivy (Aqua Security)
+    entrypoint: [""]                      # Sobrescribe entrypoint
+  tags:                                   # Runner
+    - $SCAN_RUNNER_TAG                    # Sin Docker (Trivy descarga imágenes del registry)
+  before_script:                          # Antes de script
+    - export TRIVY_USERNAME=$CI_REGISTRY_USER  # Credenciales para descargar imágenes del registry privado
+    - export TRIVY_PASSWORD=$CI_REGISTRY_PASSWORD  # Password del registry
+    - 'ls -la .gitlab/templates/trivy-html-template.tpl || echo "WARNING: Template not found!"'  # Verifica que template HTML existe

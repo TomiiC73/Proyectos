@@ -1,0 +1,158 @@
+.animated-button {
+  position: relative;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  will-change: transform, box-shadow;
+  outline: none;
+  transform-origin: center;
+}
+
+.animated-button.primary {
+  background: linear-gradient(135deg, #00bcd4 0%, #26c6da 50%, #4dd0e1 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(0, 188, 212, 0.4);
+}
+
+.animated-button.secondary {
+  background: linear-gradient(135deg, #4fc3f7 0%, #29b6f6 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(79, 195, 247, 0.3);
+}
+
+.animated-button.success {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(79, 172, 254, 0.3);
+}
+
+.animated-button.danger {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(250, 112, 154, 0.3);
+}
+
+.animated-button.outline {
+  background: transparent;
+  border: 2px solid #00bcd4;
+  color: #00bcd4;
+  box-shadow: none;
+}
+
+.animated-button.outline:hover {
+  background: #00bcd4;
+  color: white;
+}
+
+.animated-button:disabled,
+.animated-button.disabled {
+  background: #e2e8f0;
+  color: #a0aec0;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.animated-button:disabled:hover,
+.animated-button.disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.animated-button.loading {
+  color: transparent;
+}
+
+.animated-button.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: button-loading 1s linear infinite;
+}
+
+@keyframes button-loading {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.button-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ripple-effect {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.6);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Efectos adicionales */
+.animated-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+  z-index: 0;
+}
+
+.animated-button:hover::before {
+  left: 100%;
+}
+
+.animated-button:focus {
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+}
+
+/* Variantes de tamaño */
+.animated-button.small {
+  padding: 8px 16px;
+  font-size: 12px;
+}
+
+.animated-button.large {
+  padding: 16px 32px;
+  font-size: 16px;
+}
+
+/* Efectos especiales */
+.animated-button.glow {
+  box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+}
+
+.animated-button.pulse {
+  animation: button-pulse 2s infinite;
+}
+
+@keyframes button-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(102, 126, 234, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(102, 126, 234, 0);
+  }
+}

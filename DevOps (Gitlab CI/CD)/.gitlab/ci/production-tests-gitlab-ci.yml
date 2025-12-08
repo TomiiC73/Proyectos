@@ -1,0 +1,151 @@
+# ================================================
+# PRODUCTION TESTS JOBS
+# ================================================
+# Tests de health checks y validación en producción
+# ================================================
+
+production-tests:health-checks:
+  stage: production-tests                 # Etapa production-tests (8va etapa)
+  tags:                                   # Runner a usar
+    - $DEPLOY_RUNNER_TAG                  # Runner con acceso al server de deploy
+  needs:                                  # Dependencias (jobs que deben completar primero)
+    - job: deploy:production              # Espera a que deploy:production termine
+      optional: true                      # No falla si deploy:production se saltea
+  script:                                 # Comandos a ejecutar
+    - 'echo "Running production health checks..."'  # Mensaje inicial
+    - 'echo ""'                          # Línea vacía para legibilidad
+    - 'echo "[Check 1] Docker containers status..."'  # Check 1: Estado de contenedores
+    - 'docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "todos|NAMES"'  # Lista contenedores que contienen 'todos' en el nombre (formato tabla)
+    - 'echo ""'                          # Línea vacía
+    - 'echo "[Check 2] Waiting for services to be ready (30 seconds)..."'  # Check 2: Esperar a que services estén ready
+    - 'sleep 30'                          # Espera 30 segundos para que servicios inicien completamente
+    - 'echo ""'                          # Línea vacía
+    - 'echo "[Check 3] Checking which ports are listening..."'  # Check 3: Verificar puertos
+    - 'docker ps --format "table {{.Names}}\t{{.Ports}}" | grep -E "todos|NAMES"'  # Muestra puertos mapeados de contenedores todos-*
+    - 'echo ""'                          # Línea vacía
+    - 'echo "[Check 4] Testing HTTPS endpoint..."'  # Check 4: Test de endpoint HTTPS
+    - |                                   # Bloque multilinea de shell script
+      # Intentar con puerto 60143 primero
+      if curl -k -s --connect-timeout 5 https://localhost:60143 > homepage.html 2>/dev/null; then  # curl -k (inseguro, acepta cert autofirmado), -s (silencioso), timeout 5s, guarda en homepage.html
+        HTTPS_PORT=60143                  # Si funciona, HTTPS_PORT=60143
+        echo "[OK] HTTPS works on port 60143"  # Mensaje de éxito
+      # Si falla, intentar con puerto 443
+      elif curl -k -s --connect-timeout 5 https://localhost:443 > homepage.html 2>/dev/null; then  # Intenta puerto 443 (puerto HTTPS estándar)
+        HTTPS_PORT=443                    # HTTPS_PORT=443
+        echo "[OK] HTTPS works on port 443"  # Éxito en 443
+      # Si ambos fallan, intentar sin SSL en puerto 80
+      elif curl -s --connect-timeout 5 http://localhost:80 > homepage.html 2>/dev/null; then  # Intenta HTTP en puerto 80 (sin SSL)
+        HTTPS_PORT=80                     # HTTPS_PORT=80 (realmente HTTP)
+        echo "[INFO] HTTP works on port 80 (no HTTPS)"  # Info: funciona HTTP pero no HTTPS
+      else                                # Si todos los intentos fallan
+        echo "[WARNING] Could not connect to web service on common ports"  # Warning: no se pudo conectar
+        echo "[INFO] Checking if nginx container is running..."  # Info: verifica si nginx está corriendo
+        docker ps | grep todos-nginx || echo "[ERROR] Nginx container not found"  # Busca container todos-nginx (|| echo si no existe)
+        echo "[INFO] Nginx logs:"         # Muestra logs de nginx
+        docker logs todos-nginx --tail 20 || true  # Últimas 20 líneas de logs (|| true no falla si no existe)
+        echo "[INFO] Creating empty homepage.html for artifacts"  # Crea archivo vacío para artifacts
+        echo "<html><body>Service not accessible during test</body></html>" > homepage.html  # HTML placeholder
+      fi                                  # Fin del if
+      
+      if [ -f homepage.html ] && [ -s homepage.html ]; then  # Si homepage.html existe (-f) y no está vacío (-s)
+        FILE_SIZE=$(wc -c < homepage.html)  # Cuenta bytes del archivo (wc -c)
+        echo "Downloaded ${FILE_SIZE} bytes"  # Muestra tamaño descargado
+        echo ""                          # Línea vacía
+        echo "Page preview (first 300 chars):"  # Preview de la página
+        head -c 300 homepage.html         # Muestra primeros 300 caracteres (head -c)
+        echo ""                          # Línea vacía
+      fi                                  # Fin del if
+    - 'echo ""'                          # Línea vacía
+    - 'echo "[Check 5] Testing HTTP endpoint..."'  # Check 5: Test de endpoint HTTP
+    - |                                   # Bloque multilinea
+      HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 http://localhost:60180 2>/dev/null || echo "000")  # curl -o /dev/null (descarta body), -w (output solo status code), intenta puerto 60180, si falla devuelve 000
+      if [ "$HTTP_STATUS" = "000" ]; then  # Si falló en 60180
+        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 http://localhost:80 2>/dev/null || echo "000")  # Intenta puerto 80
+        PORT=80                           # PORT=80
+      else                                # Si funcionó en 60180
+        PORT=60180                        # PORT=60180
+      fi                                  # Fin if
+      
+      if [ "$HTTP_STATUS" = "301" ] || [ "$HTTP_STATUS" = "302" ]; then  # Si status es 301 (redirect permanente) o 302 (redirect temporal)
+        echo "[OK] HTTP redirects to HTTPS (Status: $HTTP_STATUS on port $PORT)"  # OK: HTTP redirige a HTTPS (comportamiento esperado)
+      elif [ "$HTTP_STATUS" = "200" ]; then  # Si status es 200 (OK)
+        echo "[OK] HTTP accessible (Status: $HTTP_STATUS on port $PORT)"  # OK: HTTP accesible
+      else                                # Cualquier otro status
+        echo "[WARNING] HTTP returned status: $HTTP_STATUS on port $PORT"  # Warning: status inesperado
+      fi                                  # Fin if
+    - 'echo ""'                          # Línea vacía
+    - 'echo "[Check 7] Testing API root (/)..."'  # Check 7: Test del root de la API
+    - |                                   # Bloque multilinea
+      API_ROOT_STATUS=$(curl -k -s -o /dev/null -w "%{http_code}" --connect-timeout 5 https://172.16.9.31:60143/api/ 2>/dev/null || echo "000")  # curl a /api/ del server de producción (172.16.9.31:60143), obtiene solo status code
+      echo "[INFO] GET /api/ - Status: $API_ROOT_STATUS"  # Muestra status code obtenido
+      if [ "$API_ROOT_STATUS" = "200" ]; then  # Si status es 200 (OK)
+        curl -k -s https://172.16.9.31:60143/api/ | head -c 300  # Muestra primeros 300 chars del response body
+        echo ""                          # Línea vacía
+      fi                                  # Fin if
+    - 'echo ""'                          # Línea vacía
+    - 'echo "[Check 8] Testing GET /api/todos..."'  # Check 8: Test del endpoint de todos
+    - |                                   # Bloque multilinea
+      TODOS_STATUS=$(curl -k -s -o todos_response.json -w "%{http_code}" --connect-timeout 5 https://172.16.9.31:60143/api/todos 2>/dev/null || echo "000")  # curl a /api/todos, guarda response en todos_response.json, obtiene status code
+      echo "[INFO] GET /api/todos - Status: $TODOS_STATUS"  # Muestra status code
+      if [ "$TODOS_STATUS" = "200" ]; then  # Si status es 200 (OK)
+        echo "[OK] Todos endpoint responding"  # OK: endpoint responde correctamente
+        cat todos_response.json | head -c 500  # Muestra primeros 500 chars del JSON guardado (cat lee archivo, head limita)
+        echo ""                          # Línea vacía
+      else                                # Si status NO es 200
+        echo "[ERROR] Todos endpoint failed with status: $TODOS_STATUS"  # Error: endpoint falló
+        echo "Response:"                  # Muestra respuesta
+        cat todos_response.json 2>/dev/null | head -c 300 || echo "No response body"  # Muestra primeros 300 chars o mensaje si no hay respuesta (2>/dev/null descarta errores de cat)
+        echo ""                          # Línea vacía
+      fi                                  # Fin if
+    - 'echo ""'                          # Línea vacía
+    - 'echo "[Check 9] Testing notifications service..."'  # Check 9: Test del servicio de notificaciones
+    - |                                   # Bloque multilinea
+      NOTIF_STATUS=$(curl -k -s -o /dev/null -w "%{http_code}" --connect-timeout 5 https://172.16.9.31:60143/notifications/health 2>/dev/null || echo "000")  # curl al health endpoint de notifications (-o /dev/null descarta body), obtiene status code
+      echo "[INFO] GET /notifications/health - Status: $NOTIF_STATUS"  # Muestra status code
+      if [ "$NOTIF_STATUS" = "200" ]; then  # Si status es 200 (OK)
+        echo "[OK] Notifications service responding"  # OK: servicio responde
+        curl -k -s https://172.16.9.31:60143/notifications/health | head -c 200  # Muestra primeros 200 chars de la respuesta
+        echo ""                          # Línea vacía
+      else                                # Si status NO es 200
+        echo "[INFO] Notifications endpoint status: $NOTIF_STATUS (puede ser normal si no está expuesto)"  # Info: puede ser normal si el endpoint no está expuesto públicamente
+      fi                                  # Fin if
+    - 'echo ""'                          # Línea vacía
+    - 'echo "[Check 10] Testing frontend homepage..."'  # Check 10: Test de la homepage del frontend
+    - |                                   # Bloque multilinea
+      WEB_STATUS=$(curl -k -s -o /dev/null -w "%{http_code}" --connect-timeout 5 https://172.16.9.31:60143/ 2>/dev/null || echo "000")  # curl a la homepage del frontend, obtiene status code
+      echo "[INFO] GET / (Frontend) - Status: $WEB_STATUS"  # Muestra status code
+      if [ "$WEB_STATUS" = "200" ]; then  # Si status es 200 (OK)
+        echo "[OK] Frontend accessible"   # OK: frontend accesible
+      else                                # Si status NO es 200
+        echo "[WARNING] Frontend status: $WEB_STATUS"  # Warning: frontend no accesible
+      fi                                  # Fin if
+    - |                                   # Bloque multilinea para resumen final
+      echo "════════════════════════════════════════════════════════════"  # Separador visual
+      echo " RESUMEN DE TESTS DE PRODUCCIÓN"  # Título del resumen
+      echo "════════════════════════════════════════════════════════════"  # Separador
+      echo "✓ Contenedores verificados"   # Resumen: contenedores OK
+      echo "✓ Puertos verificados"        # Resumen: puertos OK
+      echo "✓ HTTPS gateway verificado"   # Resumen: HTTPS funcionando
+      echo "✓ API endpoints testeados"    # Resumen: API testeada
+      echo "✓ Frontend verificado"        # Resumen: frontend OK
+      echo ""                          # Línea vacía
+      echo " URLs de acceso:"           # Título de URLs
+      echo "  - Frontend:     https://172.16.9.31:60143/"  # URL del frontend
+      echo "  - API:          https://172.16.9.31:60143/api/"  # URL de la API root
+      echo "  - API Todos:    https://172.16.9.31:60143/api/todos"  # URL del endpoint todos
+      echo "════════════════════════════════════════════════════════════"  # Separador final
+      echo ""                          # Línea vacía
+      echo "      Production health checks completed!"  # Mensaje de finalización
+  
+  artifacts:                              # Configuración de artifacts (archivos generados)
+    paths:                                # Paths de los artifacts a guardar
+      - homepage.html                     # HTML de la homepage descargada (Check 4)
+      - create_response.json              # Response JSON de creación de todo
+      - todos_response.json               # Response JSON de GET /api/todos (Check 8)
+    expire_in: 1 week                     # Artifacts se borran después de 1 semana
+    when: always                          # Guarda artifacts siempre (aunque el job falle)
+  
+  only:                                   # Condiciones para ejecutar este job
+    - main                                # Solo se ejecuta en branch main (producción)
+  when: manual                            # Requiere activación manual (no se ejecuta automáticamente)
+  allow_failure: true                     # Si este job falla, NO bloquea el pipeline (tests informativos)

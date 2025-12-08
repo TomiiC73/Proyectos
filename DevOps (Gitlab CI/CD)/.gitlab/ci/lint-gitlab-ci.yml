@@ -1,0 +1,196 @@
+# ================================================
+# CODE LINTING & DOCKER LINTING JOBS
+# ================================================
+# Análisis estático de código Python/JavaScript
+# y validación de Dockerfiles con Hadolint
+# ================================================
+
+# -------------------- CODE LINTING --------------------
+
+code-lint:api:
+  extends: .rules_api                     # Solo ejecuta si hay cambios en api/
+  stage: code-lint                        # Etapa code-lint (2da etapa)
+  tags:                                   # Runner a usar
+    - $SCAN_RUNNER_TAG                    # Runner sin Docker
+  image: python:3.11-alpine               # Imagen Python 3.11 en Alpine (ligera)
+  before_script:                          # Antes del script principal
+    - apk add --no-cache gcc musl-dev libffi-dev  # Instalar compiladores para deps Python
+  script:                                 # Comandos a ejecutar
+    - echo "Linting código Python de API..."  # Mensaje
+    - cd api                              # Cambiar a carpeta api/
+    - pip install -r requirements.txt     # Instalar dependencias del proyecto
+    - pip install pylint bandit[toml]     # Instalar linters: Pylint (calidad), Bandit (seguridad)
+    - echo "Running Pylint..."            # Mensaje
+    - pylint *.py --output-format=json > ../pylint-api-report.json || true  # Ejecuta Pylint en todos los .py, genera JSON (|| true = no falla pipeline)
+    - pylint *.py --output-format=html > ../pylint-api-report.html || true  # Genera reporte HTML de Pylint para visualización
+    - echo "Running Bandit (security)..." # Mensaje
+    - bandit -r . -f json -o ../bandit-api-report.json || true  # Ejecuta Bandit recursivo (-r), busca vulnerabilidades, formato JSON
+    - echo "✓ Linting completado para API"  # Éxito
+  artifacts:                              # Artifacts (archivos guardados)
+    paths:                                # Rutas a guardar
+      - pylint-api-report.json            # Reporte JSON de Pylint
+      - pylint-api-report.html            # Reporte HTML de Pylint
+      - bandit-api-report.json            # Reporte JSON de Bandit
+    expire_in: 1 week                     # Mantener 1 semana
+    when: always                          # Guardar siempre (incluso si falla)
+
+code-lint:web:
+  extends: .rules_web                     # Solo ejecuta si hay cambios en web/
+  stage: code-lint                        # Etapa code-lint (2da etapa)
+  needs:                                  # Dependencias
+    - job: secrets-scan:web               # Espera a secrets-scan:web
+      optional: true                      # No falla si secrets-scan:web se saltea
+  tags:                                   # Runner a usar
+    - $SCAN_RUNNER_TAG                    # Runner sin Docker
+  image: node:18-alpine                   # Imagen Node.js 18 en Alpine (pequeña)
+  script:                                 # Comandos a ejecutar
+    - echo "Linting código JavaScript/React de Web..."  # Mensaje
+    - cd web                              # Cambiar a carpeta web/
+    - npm install                         # Instalar dependencias del package.json
+    - npm install -g eslint               # Instalar ESLint globalmente
+    - echo "Running ESLint..."            # Mensaje
+    - npx eslint src/ --format json --output-file ../eslint-web-report.json || true  # Ejecuta ESLint en src/, genera JSON (|| true = no falla)
+    - npx eslint src/ --format html --output-file ../eslint-web-report.html || true  # Genera HTML para ver en browser
+    - echo "Running npm audit..."         # Mensaje
+    - npm audit --json > ../npm-audit-report.json || true  # Escanea vulnerabilidades en dependencias npm
+    - echo "✓ Linting completado para Web"  # Éxito
+  artifacts:                              # Artifacts (archivos guardados)
+    paths:                                # Rutas a guardar
+      - eslint-web-report.json            # Reporte JSON de ESLint
+      - eslint-web-report.html            # Reporte HTML de ESLint
+      - npm-audit-report.json             # Reporte de vulnerabilidades npm
+    expire_in: 1 week                     # Mantener 1 semana
+    when: always                          # Guardar siempre (incluso si falla)
+
+code-lint:notifications:
+  extends: .rules_notifications           # Solo si cambia notifications/
+  stage: code-lint                        # Etapa code-lint
+  needs:                                  # Dependencias
+    - job: secrets-scan:notifications     # Espera a secrets-scan:notifications
+      optional: true                      # No falla si secrets-scan:notifications se saltea
+  tags:                                   # Runner
+    - $SCAN_RUNNER_TAG                    # Sin Docker
+  image: python:3.11-alpine               # Python Alpine
+  before_script:                          # Antes del script
+    - apk add --no-cache gcc musl-dev libffi-dev  # Instalar compiladores para deps Python
+  script:                                 # Comandos
+    - echo "Linting código Python de Notifications..."  # Mensaje
+    - cd notifications                    # Cambiar a notifications/
+    - pip install -r requirements.txt     # Instalar deps del proyecto
+    - pip install pylint bandit[toml]     # Instalar linters
+    - echo "Running Pylint..."            # Mensaje
+    - pylint *.py --output-format=json > ../pylint-notifications-report.json || true  # Pylint en JSON
+    - pylint *.py --output-format=html > ../pylint-notifications-report.html || true  # Genera reporte HTML de Pylint para visualización
+    - echo "Running Bandit (security)..." # Mensaje
+    - bandit -r . -f json -o ../bandit-notifications-report.json || true  # Bandit seguridad
+    - echo "✓ Linting completado para Notifications"  # Éxito
+  artifacts:                              # Artifacts
+    paths:                                # Archivos
+      - pylint-notifications-report.json  # Reporte Pylint
+      - pylint-notifications-report.html  # Reporte HTML de Pylint
+      - bandit-notifications-report.json  # Reporte Bandit
+    expire_in: 1 week                     # 1 semana
+    when: always                          # Siempre
+
+# -------------------- DOCKER LINTING --------------------
+
+# Linting de Dockerfile para microservicio API
+docker-lint:api:
+  extends: .rules_dockerfile_api          # Solo si cambia api/Dockerfile
+  stage: docker-lint                      # Etapa docker-lint (3ra etapa)
+  needs:                                  # Dependencias
+    - job: code-lint:api                  # Espera a code-lint:api
+      optional: true                      # No falla si code-lint:api se saltea
+  tags:                                   # Runner
+    - $SCAN_RUNNER_TAG                    # Sin Docker (solo ejecuta hadolint)
+  image: hadolint/hadolint:latest-alpine  # Imagen oficial de Hadolint en Alpine
+  script:                                 # Comandos
+    - echo "Linting Dockerfile de API..." # Mensaje
+    - hadolint api/Dockerfile --format json > hadolint-api-report.json || true  # Ejecuta hadolint, genera JSON (|| true no falla pipeline)
+    - hadolint api/Dockerfile || true     # Ejecuta hadolint mostrando output en logs
+    - echo "✓ Docker linting completado para API"  # Éxito
+  artifacts:                              # Artifacts
+    paths:                                # Archivos a guardar
+      - hadolint-api-report.json          # Reporte JSON de Hadolint
+    expire_in: 1 week                     # Expira en 1 semana
+    when: always                          # Guardar siempre
+
+docker-lint:web:
+  extends: .rules_dockerfile_web          # Solo si cambia web/Dockerfile
+  stage: docker-lint                      # Etapa docker-lint
+  needs:                                  # Dependencias
+    - job: code-lint:web                  # Espera a code-lint:web
+      optional: true                      # No falla si code-lint:web se saltea
+  tags:                                   # Runner
+    - $SCAN_RUNNER_TAG                    # Runner sin Docker
+  image: hadolint/hadolint:latest-alpine  # Hadolint Alpine
+  script:                                 # Comandos
+    - echo "Linting Dockerfile de Web..." # Mensaje
+    - hadolint web/Dockerfile --format json > hadolint-web-report.json || true  # Hadolint JSON
+    - hadolint web/Dockerfile || true     # Hadolint output en logs
+    - echo "✓ Docker linting completado para Web"  # Éxito
+  artifacts:                              # Artifacts
+    paths:                                # Archivos
+      - hadolint-web-report.json          # Reporte JSON
+    expire_in: 1 week                     # 1 semana
+    when: always                          # Siempre guardar
+
+docker-lint:db:
+  extends: .rules_dockerfile_db           # Solo si cambia db/Dockerfile
+  stage: docker-lint                      # Etapa docker-lint
+  needs:                                  # Dependencias
+    - job: secrets-scan:api               # Espera a secrets-scan:api (DB no tiene code-lint)
+      optional: true                      # No falla si secrets-scan:api se saltea
+  tags:                                   # Runner
+    - $SCAN_RUNNER_TAG                    # Sin Docker
+  image: hadolint/hadolint:latest-alpine  # Hadolint Alpine
+  script:                                 # Comandos
+    - echo "Linting Dockerfile de DB..."  # Mensaje
+    - hadolint db/Dockerfile --format json > hadolint-db-report.json || true  # Hadolint JSON
+    - hadolint db/Dockerfile || true      # Hadolint output
+    - echo "✓ Docker linting completado para DB"  # Éxito
+  artifacts:                              # Artifacts
+    paths:                                # Archivos
+      - hadolint-db-report.json           # Reporte JSON
+    expire_in: 1 week                     # 1 semana
+    when: always                          # Siempre
+
+docker-lint:notifications:
+  extends: .rules_dockerfile_notifications  # Solo si cambia notifications/Dockerfile
+  stage: docker-lint                      # Etapa docker-lint
+  needs:                                  # Dependencias
+    - job: code-lint:notifications        # Espera a code-lint:notifications
+      optional: true                      # No falla si code-lint:notifications se saltea
+  tags:                                   # Runner
+    - $SCAN_RUNNER_TAG                    # Sin Docker
+  image: hadolint/hadolint:latest-alpine  # Hadolint Alpine
+  script:                                 # Comandos
+    - echo "Linting Dockerfile de Notifications..."  # Mensaje
+    - hadolint notifications/Dockerfile --format json > hadolint-notifications-report.json || true  # Hadolint JSON
+    - hadolint notifications/Dockerfile || true  # Hadolint output
+    - echo "✓ Docker linting completado para Notifications"  # Éxito
+  artifacts:                              # Artifacts
+    paths:                                # Archivos
+      - hadolint-notifications-report.json  # Reporte JSON
+    expire_in: 1 week                     # 1 semana
+    when: always                          # Siempre
+
+docker-lint:nginx:
+  extends: .rules_dockerfile_nginx        # Solo si cambia nginx/Dockerfile
+  stage: docker-lint                      # Etapa docker-lint
+  needs:                                  # Dependencias
+    - job: secrets-scan:nginx             # Espera a secrets-scan:nginx (nginx no tiene code-lint)
+      optional: true                      # No falla si secrets-scan:nginx se saltea
+  tags:                                   # Runner
+    - $SCAN_RUNNER_TAG                    # Sin Docker
+  image: hadolint/hadolint:latest-alpine  # Hadolint Alpine
+  script:                                 # Comandos
+    - echo "Linting Dockerfile de Nginx..."  # Mensaje
+    - hadolint nginx/Dockerfile --format json > hadolint-nginx-report.json || true  # Hadolint JSON
+    - hadolint nginx/Dockerfile || true   # Hadolint output
+    - echo "✓ Docker linting completado para Nginx"  # Éxito
+  artifacts:                              # Artifacts
+    paths:                                # Archivos
+      - hadolint-nginx-report.json        # Reporte JSON
+    expire_in: 1 week                     # 1 semana
+    when: always                          # Siempre

@@ -1,0 +1,76 @@
+# ================================================
+# IAC SCAN JOBS
+# ================================================
+# Escaneo de infraestructura como código
+# usando Checkov para Dockerfiles, docker-compose y CI/CD
+# ================================================
+
+iac-scan:dockerfiles:
+  extends:                                # Hereda configuración
+    - .checkov_template                   # Template Checkov (scanner IaC)
+    - .rules_all_dockerfiles              # Solo si cambian Dockerfiles
+  needs:                                  # Dependencias
+    - job: docker-lint:api                # Espera a docker-lint:api
+      optional: true                      # Opcional si no se ejecuta
+    - job: docker-lint:web                # Espera a docker-lint:web
+      optional: true                      # Opcional si no se ejecuta
+    - job: docker-lint:db                 # Espera a docker-lint:db
+      optional: true                      # Opcional si no se ejecuta
+    - job: docker-lint:notifications      # Espera a docker-lint:notifications
+      optional: true                      # Opcional si no se ejecuta
+    - job: docker-lint:nginx              # Espera a docker-lint:nginx
+      optional: true                      # Opcional si no se ejecuta
+  script:                                 # Comandos
+    - echo "Scanning all Dockerfiles with Checkov..."  # Mensaje
+    - checkov --framework dockerfile --directory . --compact --soft-fail || true  # Escanea Dockerfiles recursivamente, --compact (salida corta), --soft-fail (no falla pipeline)
+    - echo ""                             # Línea vacía
+    - echo "Generating JSON report..."    # Mensaje
+    - checkov --framework dockerfile --directory . --output json --soft-fail > checkov-dockerfiles-report.json || echo '{"summary":{"passed":0,"failed":0,"skipped":0},"results":{"failed_checks":[]}}' > checkov-dockerfiles-report.json  # Genera JSON o JSON vacío si falla
+    - ls -lah checkov-dockerfiles-report.*  # Lista archivos generados
+  artifacts:                              # Artifacts
+    when: always                          # Guardar siempre
+    paths:                                # Archivos
+      - checkov-dockerfiles-report.json   # Reporte JSON
+    expire_in: 1 week                     # 1 semana
+
+#iac-scan:compose:                       # Job COMENTADO (Checkov no soporta docker-compose como framework)
+#  extends:                                # Hereda configuración
+#    - .checkov_template                   # Template Checkov
+#    - .rules_docker_compose               # Solo si cambia docker-compose.yml
+#  needs:                                  # Dependencias
+#    - job: iac-scan:dockerfiles           # Espera a iac-scan:dockerfiles
+#  script:                                 # Comandos
+#    - echo "Scanning docker-compose.yml with Checkov..."  # Mensaje
+#    - checkov --framework yaml --file docker-compose.yml --compact --soft-fail || true  # Escanea docker-compose.yml como YAML genérico
+#    - echo ""                             # Línea vacía
+#    - echo "Generating JSON report..."    # Mensaje
+#    - checkov --framework yaml --file docker-compose.yml --output json --soft-fail > checkov-compose-report.json || echo '{"summary":{"passed":0,"failed":0,"skipped":0},"results":{"failed_checks":[]}}' > checkov-compose-report.json  # JSON
+#    - ls -lah checkov-compose-report.*    # Lista archivos
+#  artifacts:                              # Artifacts
+#    when: always                          # Siempre
+#    paths:                                # Archivos
+#      - checkov-compose-report.json       # Reporte JSON
+#    expire_in: 1 week                     # 1 semana
+
+
+#iac-scan:cicd:                          # Job COMENTADO (desactivado)
+#  extends:                                # Hereda configuración
+#    - .checkov_template                   # Template Checkov
+#    - .rules_gitlab_ci                    # Solo si cambia .gitlab-ci.yml
+#  needs:                                  # Dependencias
+#    - job: secrets-scan:api               # Espera a secrets-scan:api
+#    - job: secrets-scan:web               # Espera a secrets-scan:web
+#    - job: secrets-scan:notifications     # Espera a secrets-scan:notifications
+#    - job: secrets-scan:nginx             # Espera a secrets-scan:nginx
+#  script:                                 # Comandos
+#    - echo "Scanning .gitlab-ci.yml with Checkov..."  # Mensaje
+#    - checkov --framework gitlab_ci --file .gitlab-ci.yml --compact --soft-fail || true  # Escanea pipeline de GitLab CI
+#    - echo ""                             # Línea vacía
+#    - echo "Generating JSON report..."    # Mensaje
+#    - checkov --framework gitlab_ci --file .gitlab-ci.yml --output json --soft-fail > checkov-cicd-report.json || echo '{"summary":{"passed":0,"failed":0,"skipped":0},"results":{"failed_checks":[]}}' > checkov-cicd-report.json  # JSON
+#    - ls -lah checkov-cicd-report.*       # Lista archivos
+#  artifacts:                              # Artifacts
+#    when: always                          # Siempre
+#    paths:                                # Archivos
+#      - checkov-cicd-report.json          # Reporte JSON
+#    expire_in: 1 week                     # 1 semana

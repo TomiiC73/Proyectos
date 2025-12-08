@@ -1,0 +1,79 @@
+# ================================================
+# RULES TEMPLATES
+# ================================================
+# Templates de reglas reutilizables para los jobs
+# Controlan cuándo se ejecutan los jobs basándose en
+# cambios en archivos específicos
+# ================================================
+
+# Regla base para branch main
+.rules_main:
+  rules:                                  # Reglas de ejecución
+    - if: '$CI_COMMIT_BRANCH == "main"'   # Si el branch es main
+      when: on_success                    # Ejecutar si jobs anteriores tuvieron éxito
+
+# Todas las demás reglas usan la regla base (ejecutar siempre en main)
+.rules_api:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+
+.rules_web:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+
+.rules_db:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+
+.rules_notifications:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+
+.rules_nginx:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+
+.rules_nginx_build:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+
+.rules_dockerfile_api:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+
+.rules_dockerfile_web:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+
+.rules_dockerfile_db:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+
+.rules_dockerfile_notifications:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+
+.rules_dockerfile_nginx:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+
+.rules_all_dockerfiles:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+
+.rules_docker_compose:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success

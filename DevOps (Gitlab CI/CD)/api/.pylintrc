@@ -1,0 +1,29 @@
+[MASTER]
+# Python code to execute, usually for sys.path manipulation
+init-hook='import sys; sys.path.append(".")'
+
+[MESSAGES CONTROL]
+# Disable some common warnings for Flask apps
+disable=
+    C0111,  # missing-docstring
+    C0103,  # invalid-name
+    R0903,  # too-few-public-methods
+    W0703,  # broad-except
+    R0913,  # too-many-arguments
+    R0914,  # too-many-locals
+    C0415,  # import-outside-toplevel
+
+[FORMAT]
+# Maximum number of characters on a single line
+max-line-length=120
+
+[BASIC]
+# Good variable names which should always be accepted
+good-names=i,j,k,ex,Run,_,id,db,app
+
+[DESIGN]
+# Maximum number of arguments for function / method
+max-args=7
+
+# Maximum number of attributes for a class
+max-attributes=10

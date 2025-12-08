@@ -1,0 +1,73 @@
+# ================================================  
+# GITLAB CI/CD PIPELINE                           
+# ================================================  
+# Pipeline para aplicación de microservicios      
+# Arquitectura: API, Web, DB, Notifications, Nginx 
+# ================================================  
+
+# -------------------- STAGES --------------------  
+stages:                                   # Lista de stages del pipeline (orden de ejecución)
+  - secrets-scan                         
+  - code-lint                             
+  - docker-lint                          
+  - iac-scan                              
+  - build                                 
+  - image-scan                            
+  - deploy                                
+  - production-tests                     
+
+# -------------------- VARIABLES -------------------- 
+variables:                                # Variables accesibles en todos los jobs del pipeline
+  # Runner para jobs que NO necesitan Docker (lint, scan)  # Comentario explicativo
+  SCAN_RUNNER_TAG: runner-without-dind    # Tag del runner para jobs de escaneo (sin Docker-in-Docker)
+  # Runner para jobs que SÍ necesitan Docker (build)  # Comentario explicativo
+  BUILD_RUNNER_TAG: runner-without-dind   # Tag del runner para jobs de build (sin DinD porque usa Docker socket)
+  # Runner para deploy                    # Comentario explicativo
+  DEPLOY_RUNNER_TAG: ssh-docker-alumnos01 # Tag del runner de deploy (con acceso SSH y Docker en servidor de producción)
+
+  # Registry del LabSis                  
+  REGISTRY_URL: registry-alumnos.labsis.frc.utn.edu.ar:8443  # URL del Docker registry del LabSis (puerto 8443 para HTTPS)
+  REGISTRY_USER: $CI_REGISTRY_USER        # Usuario del registry (variable predefinida de GitLab CI/CD)
+  REGISTRY_PASSWORD: $CI_REGISTRY_PASSWORD # Password del registry (variable predefinida de GitLab CI/CD)
+  
+  # Servidor de deploy                   
+  DEPLOY_HOST: 172.16.9.31                # IP del servidor de producción
+  DEPLOY_USER: docker-alumnos01           # Usuario SSH para deploy
+  
+  # Nombres de imágenes                  
+  API_IMAGE: ${REGISTRY_URL}/todos-api    # Nombre completo de la imagen API (registry/nombre)
+  WEB_IMAGE: ${REGISTRY_URL}/todos-web    # Nombre completo de la imagen Web
+  DB_IMAGE: ${REGISTRY_URL}/todos-db      # Nombre completo de la imagen DB
+  NOTIFICATIONS_IMAGE: ${REGISTRY_URL}/todos-notifications # Nombre completo de la imagen Notifications
+  NGINX_IMAGE: ${REGISTRY_URL}/todos-nginx # Nombre completo de la imagen Nginx
+  
+  # Tag de versión                        
+  IMAGE_TAG: $CI_COMMIT_SHORT_SHA         # Tag de las imágenes (SHA corto del commit, ej: a1b2c3d, permite trackear versiones)
+  
+  # Variables para deploy                 
+  GIT_STRATEGY: clone                     # Estrategia de Git (clone clona repo completo, vs fetch que solo actualiza)
+  PATH_SERVER_USR: devops-tp              # Path del usuario en servidor de producción
+  DOCKER_NETWORK: app-network             # Nombre de la red Docker para comunicación entre containers
+
+  MYSQL_DATABASE: todos_db                # Nombre de la base de datos MySQL (no sensible)
+  MYSQL_USER: todos_user                  # Usuario de MySQL (no sensible)
+  SMTP_SERVER: smtp.gmail.com             # Servidor SMTP para envío de emails (no sensible)
+  SMTP_PORT: "587"                        # Puerto SMTP (587 para TLS, no sensible)
+  EMAIL_FROM: noreply@todos.com           # Email remitente (no sensible)
+
+# -------------------- INCLUDES --------------------  # Sección de includes (archivos modulares)
+# Incluir templates y jobs organizados por etapa  # Comentario explicativo
+
+include:                                 
+  # Templates reutilizables (deben ir primero) 
+  - local: ".gitlab/template/templates.yml" 
+  - local: ".gitlab/template/rules.yml"   
+
+  # Jobs organizados por etapa del pipeline
+  - local: ".gitlab/ci/secrets-gitlab-ci.yml" 
+  - local: ".gitlab/ci/lint-gitlab-ci.yml"    
+  - local: ".gitlab/ci/iac-scan-gitlab-ci.yml"
+  - local: ".gitlab/ci/build-gitlab-ci.yml"
+  - local: ".gitlab/ci/image-scan-gitlab-ci.yml" 
+  - local: ".gitlab/ci/deploy-gitlab-ci.yml"  
+  - local: ".gitlab/ci/production-tests-gitlab-ci.yml" 

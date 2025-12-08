@@ -1,0 +1,85 @@
+# ================================================
+# BUILD & PUSH JOBS
+# ================================================
+# Construcción de imágenes Docker y push al registry
+# ================================================
+
+build:api:
+  extends:                                # Hereda configuración
+    - .docker_template                    # Template Docker (login a registry)
+    - .rules_api                          # Solo si cambia api/
+  stage: build                            # Etapa build (5ta etapa)
+  needs:                                  # Dependencias (jobs previos requeridos)
+    - job: iac-scan:dockerfiles           # Espera a escaneo de Dockerfiles
+      optional: true                      # Opcional si no se ejecuta por rules
+  script:                                 # Comandos
+    - echo "Building API image..."        # Mensaje
+    - docker pull $API_IMAGE:latest || true  # Intenta pull de latest (para cache), || true no falla si no existe
+    - docker build --cache-from $API_IMAGE:latest -t $API_IMAGE:$IMAGE_TAG -t $API_IMAGE:latest ./api  # Build con cache, doble tag (SHA + latest)
+    - docker push $API_IMAGE:$IMAGE_TAG   # Push tag con SHA del commit
+    - docker push $API_IMAGE:latest       # Push tag latest
+    - echo "✓ API image built and pushed"  # Éxito
+
+build:web:
+  extends:                                # Hereda configuración
+    - .docker_template                    # Template Docker
+    - .rules_web                          # Solo si cambia web/
+  stage: build                            # Etapa build
+  needs:                                  # Dependencias
+    - job: iac-scan:dockerfiles           # Espera a escaneo de Dockerfiles
+      optional: true                      # Opcional si no se ejecuta por rules
+  script:                                 # Comandos
+    - echo "Building Web image..."        # Mensaje
+    - docker pull $WEB_IMAGE:latest || true  # Pull para cache
+    - docker build --cache-from $WEB_IMAGE:latest -t $WEB_IMAGE:$IMAGE_TAG -t $WEB_IMAGE:latest ./web  # Build con cache
+    - docker push $WEB_IMAGE:$IMAGE_TAG   # Push tag SHA
+    - docker push $WEB_IMAGE:latest       # Push tag latest
+    - echo "✓ Web image built and pushed"  # Éxito
+
+build:db:
+  extends:                                # Hereda configuración
+    - .docker_template                    # Template Docker
+    - .rules_db                           # Solo si cambia db/
+  stage: build                            # Etapa build
+  needs:                                  # Dependencias
+    - job: iac-scan:dockerfiles           # Espera a escaneo de Dockerfiles
+      optional: true                      # Opcional si no se ejecuta por rules
+  script:                                 # Comandos
+    - echo "Building DB image..."         # Mensaje
+    - docker pull $DB_IMAGE:latest || true  # Pull para cache
+    - docker build --cache-from $DB_IMAGE:latest -t $DB_IMAGE:$IMAGE_TAG -t $DB_IMAGE:latest ./db  # Build con cache
+    - docker push $DB_IMAGE:$IMAGE_TAG    # Push tag SHA
+    - docker push $DB_IMAGE:latest        # Push tag latest
+    - echo "✓ DB image built and pushed"  # Éxito
+
+build:notifications:
+  extends:                                # Hereda configuración
+    - .docker_template                    # Template Docker
+    - .rules_notifications                # Solo si cambia notifications/
+  stage: build                            # Etapa build
+  needs:                                  # Dependencias
+    - job: iac-scan:dockerfiles           # Espera a escaneo de Dockerfiles
+      optional: true                      # Opcional si no se ejecuta por rules
+  script:                                 # Comandos
+    - echo "Building Notifications image..."  # Mensaje
+    - docker pull $NOTIFICATIONS_IMAGE:latest || true  # Pull para cache
+    - docker build --cache-from $NOTIFICATIONS_IMAGE:latest -t $NOTIFICATIONS_IMAGE:$IMAGE_TAG -t $NOTIFICATIONS_IMAGE:latest ./notifications  # Build
+    - docker push $NOTIFICATIONS_IMAGE:$IMAGE_TAG  # Push SHA
+    - docker push $NOTIFICATIONS_IMAGE:latest  # Push latest
+    - echo "✓ Notifications image built and pushed"  # Éxito
+
+build:nginx:
+  extends:                                # Hereda configuración
+    - .docker_template                    # Template Docker
+    - .rules_nginx_build                  # Ejecutar si hay cambios en cualquier servicio
+  stage: build                            # Etapa build
+  needs:                                  # Dependencias
+    - job: iac-scan:dockerfiles           # Espera a escaneo de Dockerfiles
+      optional: true                      # Opcional si no se ejecuta por rules
+  script:                                 # Comandos
+    - echo "Building Nginx image..."      # Mensaje
+    - docker pull $NGINX_IMAGE:latest || true  # Pull para cache
+    - docker build --cache-from $NGINX_IMAGE:latest -t $NGINX_IMAGE:$IMAGE_TAG -t $NGINX_IMAGE:latest ./nginx  # Build
+    - docker push $NGINX_IMAGE:$IMAGE_TAG  # Push SHA
+    - docker push $NGINX_IMAGE:latest     # Push latest
+    - echo "✓ Nginx image built and pushed"  # Éxito

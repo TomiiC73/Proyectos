@@ -1,0 +1,106 @@
+# ================================================
+# IMAGE SCANNING JOBS
+# ================================================
+# Escaneo de vulnerabilidades en imágenes Docker
+# usando Trivy
+# ================================================
+
+image-scan:api:
+  extends:                                # Hereda configuración
+    - .image_scan_template                # Template Trivy (scanner de imágenes)
+    - .rules_api                          # Solo si cambia api/
+  stage: image-scan                       # Etapa image-scan (6ta etapa)
+  needs:
+    - job: build:api
+      optional: true                      # Opcional si no se ejecuta por rules
+  script:                                 # Comandos
+    - echo "Scanning API image with Trivy..."  # Mensaje
+    - trivy image --format json --output trivy-api-report.json --insecure $API_IMAGE:$IMAGE_TAG || true  # Escanea todas las vulnerabilidades, genera JSON, --insecure (acepta HTTPS autofirmado)
+    - trivy image --format template --template "@.gitlab/templates/trivy-html-template.tpl" --output trivy-api-report.html --insecure $API_IMAGE:$IMAGE_TAG || true  # HTML
+    - trivy image --format table --insecure $API_IMAGE:$IMAGE_TAG || true  # Muestra tabla en logs
+  artifacts:                              # Artifacts
+    when: always                          # Guardar siempre
+    paths:                                # Archivos
+      - trivy-api-report.json             # Reporte JSON
+      - trivy-api-report.html             # Reporte HTML
+    expire_in: 1 week                     # 1 semana
+
+image-scan:web:
+  extends:                                # Hereda configuración
+    - .image_scan_template                # Template Trivy
+    - .rules_web                          # Solo si cambia web/
+  stage: image-scan                       # Etapa image-scan
+  needs:
+    - job: build:web
+      optional: true                      # Opcional si no se ejecuta por rules
+  script:                                 # Comandos
+    - echo "Scanning Web image with Trivy..."  # Mensaje
+    - trivy image --format json --output trivy-web-report.json --insecure $WEB_IMAGE:$IMAGE_TAG || true  # JSON
+    - trivy image --format template --template "@.gitlab/templates/trivy-html-template.tpl" --output trivy-web-report.html --insecure $WEB_IMAGE:$IMAGE_TAG || true  # HTML
+    - trivy image --format table --insecure $WEB_IMAGE:$IMAGE_TAG || true  # Tabla
+  artifacts:                              # Artifacts
+    when: always                          # Siempre
+    paths:                                # Archivos
+      - trivy-web-report.json             # JSON
+      - trivy-web-report.html             # HTML
+    expire_in: 1 week                     # 1 semana
+
+image-scan:db:
+  extends:                                # Hereda configuración
+    - .image_scan_template                # Template Trivy
+    - .rules_db                           # Solo si cambia db/
+  stage: image-scan                       # Etapa image-scan
+  needs:
+    - job: build:db
+      optional: true                      # Opcional si no se ejecuta por rules
+  script:                                 # Comandos
+    - echo "Scanning DB image with Trivy..."  # Mensaje
+    - trivy image --format json --output trivy-db-report.json --insecure $DB_IMAGE:$IMAGE_TAG || true  # JSON
+    - trivy image --format template --template "@.gitlab/templates/trivy-html-template.tpl" --output trivy-db-report.html --insecure $DB_IMAGE:$IMAGE_TAG || true  # HTML
+    - trivy image --format table --insecure $DB_IMAGE:$IMAGE_TAG || true  # Tabla
+  artifacts:                              # Artifacts
+    when: always                          # Siempre
+    paths:                                # Archivos
+      - trivy-db-report.json              # JSON
+      - trivy-db-report.html              # HTML
+    expire_in: 1 week                     # 1 semana
+
+image-scan:notifications:
+  extends:                                # Hereda configuración
+    - .image_scan_template                # Template Trivy
+    - .rules_notifications                # Solo si cambia notifications/
+  stage: image-scan                       # Etapa image-scan
+  needs:
+    - job: build:notifications
+      optional: true                      # Opcional si no se ejecuta por rules
+  script:                                 # Comandos
+    - echo "Scanning Notifications image with Trivy..."  # Mensaje
+    - trivy image --format json --output trivy-notifications-report.json --insecure $NOTIFICATIONS_IMAGE:$IMAGE_TAG || true  # JSON
+    - trivy image --format template --template "@.gitlab/templates/trivy-html-template.tpl" --output trivy-notifications-report.html --insecure $NOTIFICATIONS_IMAGE:$IMAGE_TAG || true  # HTML
+    - trivy image --format table --insecure $NOTIFICATIONS_IMAGE:$IMAGE_TAG || true  # Tabla
+  artifacts:                              # Artifacts
+    when: always                          # Siempre
+    paths:                                # Archivos
+      - trivy-notifications-report.json   # JSON
+      - trivy-notifications-report.html   # HTML
+    expire_in: 1 week                     # 1 semana
+
+image-scan:nginx:
+  extends:                                # Hereda configuración
+    - .image_scan_template                # Template Trivy
+    - .rules_nginx                        # Solo si cambia nginx/
+  stage: image-scan                       # Etapa image-scan
+  needs:
+    - job: build:nginx
+      optional: true                      # Opcional si no se ejecuta por rules
+  script:                                 # Comandos
+    - echo "Scanning Nginx image with Trivy..."  # Mensaje
+    - trivy image --format json --output trivy-nginx-report.json --insecure $NGINX_IMAGE:$IMAGE_TAG || true  # JSON
+    - trivy image --format template --template "@.gitlab/templates/trivy-html-template.tpl" --output trivy-nginx-report.html --insecure $NGINX_IMAGE:$IMAGE_TAG || true  # HTML
+    - trivy image --format table --insecure $NGINX_IMAGE:$IMAGE_TAG || true  # Tabla
+  artifacts:                              # Artifacts
+    when: always                          # Siempre
+    paths:                                # Archivos
+      - trivy-nginx-report.json           # JSON
+      - trivy-nginx-report.html           # HTML
+    expire_in: 1 week                     # 1 semana

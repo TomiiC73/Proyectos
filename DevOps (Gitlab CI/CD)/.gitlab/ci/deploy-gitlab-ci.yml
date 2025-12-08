@@ -1,0 +1,356 @@
+# ================================================
+# DEPLOYMENT JOBS
+# ================================================
+# Deploy a producción y verificación de servicios
+# ================================================
+
+deploy:production:
+  stage: deploy
+  needs:
+    - job: image-scan:api
+      optional: true
+    - job: image-scan:web
+      optional: true
+    - job: image-scan:db
+      optional: true
+    - job: image-scan:notifications
+      optional: true
+    - job: image-scan:nginx
+      optional: true
+  tags:
+    - $DEPLOY_RUNNER_TAG
+  variables:
+    GIT_STRATEGY: clone
+    PATH_SERVER_USR: devops-tp
+    PATH_COMPOSE: ./docker-compose.yml
+  before_script:
+    - pwd
+    - ls -al
+    - export HOST_UID="$(id -u)"
+    - export HOST_GID="$(id -g)"
+    - docker images | grep grupo-01 || true
+    - rm -rf "$PATH_SERVER_USR/$CI_PROJECT_NAME/grupo-01/data"
+  script:
+    - 'echo "Limpiando contenedores y volumen SSL anterior..."'
+    - 'docker compose down --remove-orphans || true'
+    - 'docker volume rm todos-nginx-ssl || true'
+    - 'echo "Eliminando dhparam.pem viejo (si existe) para forzar regeneración con 2048 bits..."'
+    - 'docker run --rm -v todos-nginx-ssl:/ssl alpine sh -c "rm -f /ssl/dhparam.pem" || true'
+    - 'mkdir -p "$PATH_SERVER_USR/$CI_PROJECT_NAME/grupo-01/data"'
+
+    # Las variables sensibles deben configurarse en: Settings > CI/CD > Variables
+    # y marcarlas como "Protected" y "Masked"
+    - |
+      echo "Creating .env files from CI/CD variables..."
+      
+      # API .env
+      cat > api/.env << EOF
+      DB_HOST=db
+      DB_PORT=3306
+      DB_NAME=${MYSQL_DATABASE}
+      DB_USER=${MYSQL_USER}
+      DB_PASSWORD=${DB_PASSWORD}
+      FLASK_ENV=production
+      FLASK_DEBUG=false
+      FLASK_APP=app.py
+      SECRET_KEY=${FLASK_SECRET_KEY}
+      HOST=0.0.0.0
+      PORT=5000
+      LOG_LEVEL=DEBUG
+      LOG_FORMAT=json
+      CORS_ORIGINS=http://localhost:3000,http://localhost:80,http://localhost
+      CORS_ALLOW_CREDENTIALS=true
+      NOTIFICATIONS_SERVICE_URL=http://notifications:8001
+      EOF
+      
+      # DB .env
+      cat > db/.env << EOF
+      MYSQL_DATABASE=${MYSQL_DATABASE}
+      MYSQL_USER=${MYSQL_USER}
+      MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+      MYSQL_PASSWORD=${DB_PASSWORD}
+      MYSQL_TCP_PORT=3306
+      MYSQL_BIND_ADDRESS=0.0.0.0
+      MYSQL_INNODB_BUFFER_POOL_SIZE=256M
+      MYSQL_MAX_CONNECTIONS=100
+      MYSQL_CHARACTER_SET_SERVER=utf8mb4
+      MYSQL_COLLATION_SERVER=utf8mb4_unicode_ci
+      MYSQL_DEFAULT_TIME_ZONE=America/Argentina/Buenos_Aires
+      EOF
+      
+      # Notifications .env
+      cat > notifications/.env << EOF
+      SMTP_USERNAME=${SMTP_USERNAME}
+      SMTP_PASSWORD=${SMTP_PASSWORD}
+      SMTP_SERVER=${SMTP_SERVER}
+      SMTP_PORT=${SMTP_PORT}
+      HOST=0.0.0.0
+      PORT=8001
+      EOF
+      
+      # Web .env
+      cat > web/.env << EOF
+      REACT_APP_API_URL=http://localhost:5000
+      REACT_APP_ENV=production
+      EOF
+      
+      # Nginx .env
+      cat > nginx/.env << EOF
+      NGINX_HOST=localhost
+      NGINX_PORT=80
+      NGINX_SSL_PORT=443
+      API_UPSTREAM=api:5000
+      WEB_UPSTREAM=web:3000
+      NOTIFICATIONS_UPSTREAM=notifications:8001
+      EOF
+      
+      echo "✓ All .env files created"
+    - |
+      echo "Creating secrets files from CI/CD variables..."
+      mkdir -p secrets
+      echo "$DB_PASSWORD" > secrets/db_password.txt
+      echo "$DB_ROOT_PASSWORD" > secrets/db_root_password.txt
+      echo "$FLASK_SECRET_KEY" > secrets/flask_secret_key.txt
+      echo "$SMTP_USERNAME" > secrets/smtp_username.txt
+      echo "$SMTP_PASSWORD" > secrets/smtp_password.txt
+      chmod 644 secrets/*.txt
+      
+      echo "✓ All secrets files created"
+      echo "Validating secrets files..."
+      for secret_file in secrets/*.txt; do
+        if [ ! -s "$secret_file" ]; then
+          echo "ERROR: Secret file $secret_file is empty or missing!"
+          exit 1
+        fi
+        echo "✓ $(basename $secret_file) OK"
+      done
+    - 'echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$REGISTRY_URL"'
+    - 'cat $PATH_COMPOSE'
+    - 'echo $REGISTRY_URL'
+    - 'echo $CI_PROJECT_PATH'
+
+    - 'echo "Deteniendo servicios (manteniendo volúmenes para preservar SSL certs)..."'
+    - 'docker compose down || true'
+
+    - 'echo "Descargando imágenes..."'
+    - 'docker compose pull'
+
+    - 'echo "Verificando que nginx está en docker-compose.yml..."'
+    - 'docker compose config --services | grep nginx || echo "⚠️ WARNING: nginx no encontrado en services!"'
+
+    - 'echo "Iniciando servicios..."'
+    - 'docker compose up -d'
+
+    - 'echo "Contenedores iniciados:"'
+    - 'docker compose ps'
+
+    - 'echo "Esperando a que MySQL esté completamente listo..."'
+    - |
+      MAX_WAIT=60
+      ELAPSED=0
+      until docker exec todos-db mysqladmin ping -h localhost --silent 2>/dev/null; do
+        if [ $ELAPSED -ge $MAX_WAIT ]; then
+          echo "❌ ERROR: MySQL no respondió después de ${MAX_WAIT} segundos"
+          echo "Logs de DB:"
+          docker logs todos-db --tail=50
+          exit 1
+        fi
+        if [ $(($ELAPSED % 5)) -eq 0 ]; then
+          echo "  Esperando MySQL... (${ELAPSED}s/${MAX_WAIT}s)"
+        fi
+        sleep 2
+        ELAPSED=$((ELAPSED+2))
+      done
+    - 'echo "✓ MySQL está listo y respondiendo"'
+
+    - 'echo "Reiniciando API para asegurar conexión limpia..."'
+    - 'docker compose restart api'
+    - 'sleep 5'
+
+    - 'echo "=== DIAGNÓSTICO DE CONEXIÓN DB ==="'
+    - 'echo "1. Estado de MySQL:"'
+    - 'docker exec todos-db mysqladmin ping -h localhost && echo "✓ MySQL respondiendo" || echo "❌ MySQL no responde"'
+
+    - 'echo "2. Verificando variables de entorno en API:"'
+    - 'docker exec todos-api env | grep -E "DB_HOST|DB_USER|DB_NAME|DB_PASSWORD" || echo "❌ Variables DB no encontradas"'
+
+    - 'echo "3. Verificando si existe /run/secrets en API:"'
+    - 'docker exec todos-api ls -la /run/secrets/ 2>/dev/null || echo "⚠️ Directorio /run/secrets NO existe en API"'
+
+    - 'echo "4. Verificando conectividad de red API -> DB:"'
+    - 'docker exec todos-api ping -c 2 db || echo "❌ API no puede hacer ping a DB"'
+
+    - 'echo "5. Intentando conexión MySQL desde API a DB:"'
+    - |
+      docker exec todos-api sh -c 'python3 -c "
+      import os
+      import mysql.connector
+      try:
+          conn = mysql.connector.connect(
+              host=os.getenv(\"DB_HOST\", \"db\"),
+              user=os.getenv(\"DB_USER\", \"todos_user\"),
+              password=os.getenv(\"DB_PASSWORD\", \"\"),
+              database=os.getenv(\"DB_NAME\", \"todos_db\")
+          )
+          print(\"✓ Conexión exitosa desde API a DB\")
+          conn.close()
+      except Exception as e:
+          print(f\"❌ Error de conexión: {e}\")
+      "' || echo "Error ejecutando test de conexion"
+
+    - 'echo "6. Logs de API (últimas 30 líneas):"'
+    - 'docker logs todos-api --tail=30'
+
+    - 'echo "7. Logs de DB (últimas 30 líneas):"'
+    - 'docker logs todos-db --tail=30'
+
+    - 'echo "=== FIN DIAGNÓSTICO ==="'
+
+    - 'echo "Verificando específicamente todos-nginx:"'
+    - 'docker ps -a | grep todos-nginx || echo "❌ ERROR: todos-nginx NO EXISTE!"'
+
+    - 'echo "Esperando a que Nginx genere certificados y DH params (2048 bits)..."'
+    - |
+      # Esperar activamente hasta que nginx termine de generar DH params
+      MAX_WAIT=300  # 5 minutos máximo
+      ELAPSED=0
+      
+      echo "Monitoreando logs de nginx para detectar cuando termine DH params..."
+      
+      while [ $ELAPSED -lt $MAX_WAIT ]; do
+        # Verificar si ya terminó de generar DH params
+        if docker logs todos-nginx 2>&1 | grep -q "✅ DH params generados exitosamente"; then
+          echo "✅ Nginx completó la generación de DH params en ${ELAPSED} segundos"
+          break
+        fi
+        
+        # Verificar si nginx ya está corriendo (puede que DH params ya existiera)
+        if docker logs todos-nginx 2>&1 | grep -q "nginx entered RUNNING state"; then
+          echo "✅ Nginx ya está en estado RUNNING (DH params existentes)"
+          break
+        fi
+        
+        # Mostrar progreso cada 15 segundos
+        if [ $(($ELAPSED % 15)) -eq 0 ] && [ $ELAPSED -gt 0 ]; then
+          echo "  ⏳ Esperando generación de DH params... (${ELAPSED}s/${MAX_WAIT}s)"
+          echo "  Últimas líneas de nginx:"
+          docker logs todos-nginx --tail=3 2>&1 | sed 's/^/    /'
+        fi
+        
+        sleep 3
+        ELAPSED=$((ELAPSED + 3))
+      done
+      
+      if [ $ELAPSED -ge $MAX_WAIT ]; then
+        echo "⚠️  WARNING: Timeout esperando DH params, continuando de todas formas..."
+        docker logs todos-nginx --tail=20 2>&1
+      fi
+
+    - 'echo "Estado de contenedores después de configuración SSL:"'
+    - 'docker compose ps'
+
+    - 'echo "Verificando logs de Nginx..."'
+    - 'docker logs todos-nginx --tail=30 2>&1 || true'
+
+    - 'echo "Health check del gateway HTTPS (máx 60 seg adicionales)"'
+    - |
+      MAX_ATTEMPTS=20
+      ATTEMPT=0
+      until curl -s -k -f https://172.16.9.31:60143 > /dev/null 2>&1; do
+        ATTEMPT=$((ATTEMPT+1))
+        if [ "$ATTEMPT" -ge "$MAX_ATTEMPTS" ]; then
+          echo "ERROR: Timeout esperando respuesta HTTPS"
+
+          echo "=== Estado de TODOS los contenedores ==="
+          docker ps -a
+
+          echo "=== Verificando si todos-nginx existe ==="
+          docker ps -a | grep nginx || echo "NO SE ENCUENTRA CONTENEDOR NGINX!"
+
+          echo "=== Logs de NGINX GATEWAY (todos-nginx) ==="
+          docker logs todos-nginx --tail=150 2>&1 || echo "❌ ERROR: No se pudo obtener logs de todos-nginx"
+
+          echo "=== Logs de WEB NGINX (todos-web) ==="
+          docker logs todos-web --tail=50 2>&1 || echo "❌ ERROR: No se pudo obtener logs de todos-web"
+
+          echo "=== Logs de API (últimas 50 líneas) ==="
+          docker logs todos-api --tail=50 2>&1 || echo "❌ ERROR: No se pudo obtener logs de api"
+
+          echo "=== Docker compose config (verificando configuración) ==="
+          docker compose config --services
+
+          echo "=== Intentando iniciar nginx manualmente para ver error ==="
+          docker compose up nginx --no-start 2>&1 || true
+          docker compose logs nginx 2>&1 || true
+          exit 1
+        fi
+        if [ $(($ATTEMPT % 5)) -eq 0 ]; then
+          echo "Intento $ATTEMPT/$MAX_ATTEMPTS - Esperando respuesta de https://172.16.9.31:60143... ($(($ATTEMPT * 3))s transcurridos)"
+          docker compose ps | grep -E "nginx|api|web" || true
+          echo "Últimas líneas de nginx:"
+          docker logs todos-nginx --tail=5 2>&1 | tail -2
+        fi
+        sleep 3
+      done
+    - |
+      echo "Gateway HTTPS respondió correctamente"
+
+      echo "Probando endpoints de la aplicación..."
+
+      echo "Test 1: Página principal (Frontend React)"
+      curl -s -k -I https://172.16.9.31:60143 | head -n 5 || echo "Error al acceder a página principal"
+
+      echo "Test 2: API Root"
+      curl -s -k https://172.16.9.31:60143/api/ || echo "Endpoint /api/ no disponible"
+
+      echo "Test 3: Endpoint de Tareas (GET /api/todos)"
+      curl -s -k https://172.16.9.31:60143/api/todos || echo "Endpoint /api/todos no disponible"
+
+      echo "════════════════════════════════════════════════════════════"
+      echo "DESPLIEGUE COMPLETADO EXITOSAMENTE"
+
+      echo "URLs de acceso:"
+      echo "  - Frontend https://172.16.9.31:60143"
+      echo "  - API Root https://172.16.9.31:60143/api/"
+      echo "  - Tareas   https://172.16.9.31:60143/api/todos"
+      echo "════════════════════════════════════════════════════════════"
+  only:
+    - main
+  when: manual
+
+verify:deployment:
+  stage: deploy
+  tags:
+    - $DEPLOY_RUNNER_TAG
+  before_script:
+    - pwd
+    - ls -al
+  script:
+    - echo "Verifying deployment..."
+    - docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+    - echo "Resource usage:"
+    - docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}"
+
+    - echo "Health checks:"
+    - docker inspect --format='{{.Name}} - {{.State.Health.Status}}' $(docker ps -q) 2>/dev/null || echo "No health checks configured"
+
+    - echo "SSL Certificate Info (nginx container volume):"
+    - |
+      docker exec todos-nginx sh -c '
+        if [ -f "/etc/nginx/ssl/server.crt" ]; then
+          openssl x509 -in /etc/nginx/ssl/server.crt -noout -subject -dates
+          echo "✓ Certificado SSL generado por nginx entrypoint"
+          echo "DH params:"
+          ls -lh /etc/nginx/ssl/dhparam.pem 2>/dev/null || echo "⚠ dhparam.pem no encontrado"
+        else
+          echo "⚠ No se encontró certificado SSL en nginx"
+        fi
+      ' || echo "  No se pudo verificar certificados SSL en nginx"
+    - echo "Verification completed!"
+  dependencies:
+    - deploy:production
+  only:
+    - main
+  when: manual
+  

@@ -1,0 +1,22 @@
+[MASTER]
+init-hook='import sys; sys.path.append(".")'
+
+[MESSAGES CONTROL]
+disable=
+    C0111,  # missing-docstring
+    C0103,  # invalid-name
+    R0903,  # too-few-public-methods
+    W0703,  # broad-except
+    R0913,  # too-many-arguments
+    R0914,  # too-many-locals
+    C0415,  # import-outside-toplevel
+
+[FORMAT]
+max-line-length=120
+
+[BASIC]
+good-names=i,j,k,ex,Run,_,id,db,app
+
+[DESIGN]
+max-args=7
+max-attributes=10
