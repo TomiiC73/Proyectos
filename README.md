@@ -32,18 +32,26 @@ Evolución del proyecto Docker con implementación completa de CI/CD en GitLab. 
 
 ---
 
+### [Seguridad (SDS)](./Seguridad%20(SDS))
+Sistema bancario web desarrollado con Flask para demostración de vulnerabilidades de seguridad con fines educativos. Incluye vulnerabilidades intencionales como Command Injection, SQL Injection y autenticación débil para el estudio de seguridad informática.
+
+**Tecnologías:** Python, Flask, SQLite, Bootstrap
+
+---
+
 ## 🎓 Contexto Académico
 
 Estos proyectos fueron desarrollados como trabajos prácticos de diferentes materias:
 - **Backend de Aplicaciones** - Agencias
 - **Diseño de Sistemas de Información** - BonVino  
 - **Desarrollo y Operaciones (DevOps)** - Proyectos Docker y GitLab CI/CD
+- **Seguridad de Sistemas** - Seguridad (SDS)
 
 ## 🛠️ Tecnologías Principales
 
 - **Backend:** Java (Spring Boot), Python (Flask, FastAPI)
-- **Frontend:** React
-- **Bases de Datos:** MySQL
+- **Frontend:** React, Bootstrap
+- **Bases de Datos:** MySQL, SQLite
 - **DevOps:** Docker, GitLab CI/CD, Nginx
 - **Seguridad:** OAuth2, Docker Secrets, Trivy, Checkov
 - **Testing:** JUnit, Postman
