@@ -32,10 +32,10 @@ Evolución del proyecto Docker con implementación completa de CI/CD en GitLab. 
 
 ---
 
-### [Seguridad (SDS)](./Seguridad%20(SDS))
-Sistema bancario web desarrollado con Flask para demostración de vulnerabilidades de seguridad con fines educativos. Incluye vulnerabilidades intencionales como Command Injection, SQL Injection y autenticación débil para el estudio de seguridad informática.
+### [Banco (Seguridad)](./Banco%20(Seguridad))
+Sistema bancario web avanzado con múltiples vulnerabilidades intencionales para práctica ética de seguridad informática. Implementa Remote Code Execution (RCE), vulnerabilidades OAuth2 completas (CSRF, Client Secret expuesto), sistema de archivos simulado con exploits ocultos, y desafíos de pentesting. Incluye aplicación de enunciados, containerización con Docker y documentación exhaustiva.
 
-**Tecnologías:** Python, Flask, SQLite, Bootstrap
+**Tecnologías:** Python, Flask, OAuth2, JWT, Docker, SQLite, Bootstrap
 
 ---
 
@@ -45,16 +45,16 @@ Estos proyectos fueron desarrollados como trabajos prácticos de diferentes mate
 - **Backend de Aplicaciones** - Agencias
 - **Diseño de Sistemas de Información** - BonVino  
 - **Desarrollo y Operaciones (DevOps)** - Proyectos Docker y GitLab CI/CD
-- **Seguridad de Sistemas** - Seguridad (SDS)
+- **Seguridad de Sistemas** - Banco (Seguridad), TPI-SDS-main
 
 ## 🛠️ Tecnologías Principales
 
 - **Backend:** Java (Spring Boot), Python (Flask, FastAPI)
-- **Frontend:** React, Bootstrap
+- **Frontend:** React, Bootstrap 5
 - **Bases de Datos:** MySQL, SQLite
-- **DevOps:** Docker, GitLab CI/CD, Nginx
-- **Seguridad:** OAuth2, Docker Secrets, Trivy, Checkov
-- **Testing:** JUnit, Postman
+- **DevOps:** Docker, Docker Compose, GitLab CI/CD, Nginx
+- **Seguridad:** OAuth2, JWT, Docker Secrets, Trivy, Checkov
+- **Testing:** JUnit, Postman, Requests
 
 ## 📝 Notas
 
