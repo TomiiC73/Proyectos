@@ -39,6 +39,41 @@ Sistema bancario web avanzado con múltiples vulnerabilidades intencionales para
 
 ---
 
+### [Aeropuertos — Cierre de Rampa (n8n)](./aeropuertos-cierre-rampa-n8n)
+Flujo de automatización en n8n que orquesta la respuesta operativa ante condiciones meteorológicas severas en rampa: evalúa un reporte METAR, identifica los vuelos en ventana de riesgo y dispara en paralelo las notificaciones a las áreas involucradas (pista, mantenimiento, terminal, auditoría). Demo técnica desarrollada para la defensa de un TPI.
+
+**Tecnologías:** n8n, JavaScript, JSON (mock de datos meteorológicos y vuelos)
+
+---
+
+### [Trivia por Telegram (n8n)](./trivia-telegram-n8n)
+Bot de trivia en vivo (5 preguntas de opción múltiple, temática tech/n8n) construido sobre n8n Cloud con dos bots de Telegram: uno para jugadores y otro de administración para controlar la partida y ver respuestas en tiempo real. Al finalizar, envía automáticamente una tabla de clasificación a todos los participantes.
+
+**Tecnologías:** n8n Cloud, Telegram Bot API, JavaScript
+
+---
+
+### [EscapeRoomHackerTech](./EscapeRoomHackerTech)
+Primera versión de "HackerBank", un banco ficticio usado como escape room de ciberseguridad para el evento HackerTech (UTN-FRC). El segundo factor de autenticación es reconocimiento facial sin detección de vida (liveness), pensado para que los participantes lo vulneren mostrando una foto a la cámara.
+
+**Tecnologías:** Python, Flask, SQLite, Docker, reconocimiento facial
+
+---
+
+### [HackerTech](./HackerTech)
+Evolución de HackerBank para el evento HackerTech (UTN-FRC): reemplaza el reconocimiento facial por un segundo factor real con passkeys FIDO2/WebAuthn (Windows Hello, Touch ID), manteniendo el código del laboratorio anterior en `_legacy_face_auth/` como referencia. Incluye guía para el equipo instructor y un proxy de despliegue en Vercel.
+
+**Tecnologías:** Python, Flask, WebAuthn/FIDO2, Docker, Vercel
+
+---
+
+### [Charla — Prompt Injection](./Charla)
+Laboratorio demostrativo de un simulador de filtros ATS (Applicant Tracking System) con IA (Groq) sobre CVs en PDF, usado en una charla sobre prompt injection: incluye CVs de ejemplo con prompts ocultos para mostrar en vivo cómo un CV puede manipular la respuesta del modelo que lo evalúa.
+
+**Tecnologías:** Node.js, Express, Groq SDK (LLM), pdf-parse, IMAP/SMTP
+
+---
+
 ## 🎓 Contexto Académico
 
 Estos proyectos fueron desarrollados como trabajos prácticos de diferentes materias:
@@ -47,13 +82,19 @@ Estos proyectos fueron desarrollados como trabajos prácticos de diferentes mate
 - **Desarrollo y Operaciones (DevOps)** - Proyectos Docker y GitLab CI/CD
 - **Seguridad de Sistemas** - Banco (Seguridad), TPI-SDS-main
 
+Los siguientes proyectos no son trabajos de cursada, sino desarrollos propios y material para eventos de extensión:
+- **Automatización (n8n)** - Aeropuertos (Cierre de Rampa), Trivia por Telegram
+- **HackerTech (UTN-FRC)** - EscapeRoomHackerTech, HackerTech
+- **IA / Seguridad de IA** - Charla (Prompt Injection)
+
 ## 🛠️ Tecnologías Principales
 
-- **Backend:** Java (Spring Boot), Python (Flask, FastAPI)
+- **Backend:** Java (Spring Boot), Python (Flask, FastAPI), Node.js (Express)
 - **Frontend:** React, Bootstrap 5
 - **Bases de Datos:** MySQL, SQLite
-- **DevOps:** Docker, Docker Compose, GitLab CI/CD, Nginx
-- **Seguridad:** OAuth2, JWT, Docker Secrets, Trivy, Checkov
+- **DevOps:** Docker, Docker Compose, GitLab CI/CD, Nginx, Vercel
+- **Seguridad:** OAuth2, JWT, WebAuthn/FIDO2, Docker Secrets, Trivy, Checkov
+- **Automatización / IA:** n8n, Telegram Bot API, Groq SDK (LLM)
 - **Testing:** JUnit, Postman, Requests
 
 ## 📝 Notas

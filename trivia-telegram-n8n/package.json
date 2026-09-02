@@ -1,0 +1,17 @@
+{
+  "name": "trivia-telegram-n8n",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Trivia por Telegram para demo en vivo, orquestada con n8n Cloud",
+  "scripts": {
+    "test": "node --test tests/trivia.test.js",
+    "setup:import": "node scripts/importar_workflow.js",
+    "setup:credencial": "node scripts/crear_credencial_telegram.js",
+    "setup:activar": "node scripts/activar.js",
+    "setup": "npm run setup:import && npm run setup:credencial && npm run setup:activar",
+    "desactivar": "node scripts/desactivar.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HackerBank</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: #050507;
+    color: #f5f5f7;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-glitter {
+    position: relative;
+    overflow: hidden;
+    color: #000;
+    background: linear-gradient(110deg, #fff8dd 0%, #ffe066 12%, #c9a84c 24%, #fff8dd 36%, #ffd700 48%, #8f6f27 60%, #fff8dd 72%, #ffe066 84%, #c9a84c 100%);
+    background-size: 300% 100%;
+    animation: glitterMove 4s linear infinite;
+    box-shadow: 0 0 25px rgba(201, 168, 76, 0.55), 0 10px 30px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    border-radius: 9999px;
+    padding: 1.25rem 3rem;
+    font-weight: 900;
+    font-size: 1.5rem;
+    letter-spacing: 0.03em;
+    text-decoration: none;
+    display: inline-block;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .btn-glitter::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 45%;
+    height: 100%;
+    background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.9), transparent);
+    transform: skewX(-20deg);
+    animation: glitterShine 2.4s ease-in-out infinite;
+  }
+  .btn-glitter:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0 40px rgba(255, 215, 0, 0.85), 0 12px 34px rgba(0, 0, 0, 0.6);
+  }
+  @keyframes glitterMove {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 300% 50%; }
+  }
+  @keyframes glitterShine {
+    0% { left: -150%; }
+    55% { left: 150%; }
+    100% { left: 150%; }
+  }
+</style>
+</head>
+<body>
+
+<a href="{{ url_for('login_page') }}" class="btn-glitter">
+  <span style="position: relative; z-index: 10;">DESACTIVAR BOMBA</span>
+</a>
+
+</body>
+</html>

@@ -1,0 +1,4 @@
+Existe solo para que "vercel build" detecte un directorio estático y no
+falle con "no deployable output". Nunca deberia servirse: el rewrite de
+../vercel.json intercepta / y cualquier otra ruta antes de llegar aca,
+y esta ruta especifica no la pide nadie.

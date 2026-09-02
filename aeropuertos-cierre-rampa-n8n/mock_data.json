@@ -1,0 +1,75 @@
+{
+  "reporte_meteorologico": {
+    "estacion": "SAEZ",
+    "nombre_estacion": "Aeropuerto Internacional Ministro Pistarini (Ezeiza)",
+    "hora_reporte_utc": "2026-08-30T21:00:00Z",
+    "metar_crudo": "SAEZ 302100Z 29038G52KT 3000 +TSRA SCT008 FEW015CB BKN025 21/19 Q0998 WS ALL RWY RMK TORMENTA ELECTRICA EN AREA TERMINAL",
+    "viento": {
+      "direccion_grados": 290,
+      "velocidad_kt": 38,
+      "rafaga_kt": 52
+    },
+    "visibilidad_m": 3000,
+    "fenomenos": ["+TSRA", "WS_ALL_RWY"],
+    "actividad_electrica": true,
+    "windshear_reportado": true,
+    "nubes": [
+      { "tipo": "SCT", "altura_ft": 800, "cb": false },
+      { "tipo": "FEW", "altura_ft": 1500, "cb": true },
+      { "tipo": "BKN", "altura_ft": 2500, "cb": false }
+    ],
+    "temperatura_c": 21,
+    "punto_rocio_c": 19,
+    "qnh_hpa": 998
+  },
+  "vuelos_programados": [
+    {
+      "vuelo": "AR1130",
+      "aerolinea": "Aerolineas Argentinas",
+      "aeronave": "Airbus A330-200",
+      "matricula": "LV-FNJ",
+      "tipo_operacion": "despegue",
+      "origen": "SAEZ",
+      "destino": "LEMD",
+      "hora_programada_utc": "2026-08-30T21:15:00Z",
+      "posicion_rampa": "R14",
+      "estado": "embarcando"
+    },
+    {
+      "vuelo": "AR1303",
+      "aerolinea": "Aerolineas Argentinas",
+      "aeronave": "Boeing 737-800",
+      "matricula": "LV-GVB",
+      "tipo_operacion": "aterrizaje",
+      "origen": "SAME",
+      "destino": "SAEZ",
+      "hora_programada_utc": "2026-08-30T21:25:00Z",
+      "posicion_rampa": "R08",
+      "estado": "en_ruta"
+    },
+    {
+      "vuelo": "JA3045",
+      "aerolinea": "JetSmart",
+      "aeronave": "Airbus A320neo",
+      "matricula": "LV-KTZ",
+      "tipo_operacion": "despegue",
+      "origen": "SAEZ",
+      "destino": "SCEL",
+      "hora_programada_utc": "2026-08-30T21:35:00Z",
+      "posicion_rampa": "R21",
+      "estado": "abordaje_pendiente"
+    },
+    {
+      "vuelo": "FO2210",
+      "aerolinea": "Flybondi",
+      "aeronave": "Boeing 737-800",
+      "matricula": "LV-HQS",
+      "tipo_operacion": "aterrizaje",
+      "origen": "SAWH",
+      "destino": "SAEZ",
+      "hora_programada_utc": "2026-08-30T21:44:00Z",
+      "posicion_rampa": "R17",
+      "estado": "en_ruta"
+    }
+  ]
+}

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Laboratorio ATS - Simulador de filtros de seleccion de personal con IA">
+  <title>Laboratorio ATS - Simulador de Filtros con IA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link id="font-link" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style id="customizer-style"></style>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/customizer.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="header" id="header">
+      <div class="header-content">
+        <div class="header-brand">
+          <div class="header-icon">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <rect x="2" y="4" width="28" height="24" rx="3" stroke="currentColor" stroke-width="2"/>
+              <path d="M8 12h16M8 16h12M8 20h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="24" cy="20" r="5" fill="var(--accent-primary)" stroke="var(--bg-primary)" stroke-width="2"/>
+              <path d="M22.5 20l1 1 2-2" stroke="var(--bg-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="header-title">Laboratorio ATS</h1>
+            <p class="header-subtitle">Simulador de Filtros de Seleccion con IA</p>
+          </div>
+        </div>
+        <div class="header-badge">
+          <span class="badge badge-warning">Entorno de Laboratorio</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <section class="info-banner" id="info-banner">
+        <div class="info-banner-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+        </div>
+        <div class="info-banner-text">
+          <strong>Proposito educativo:</strong> Este laboratorio demuestra como los sistemas ATS pueden ser manipulados mediante texto oculto en CVs. Subi archivos PDF y observa como el ATS los rankea.
+        </div>
+        <button class="info-banner-close" id="close-banner" aria-label="Cerrar banner">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </section>
+
+      <section class="panel" id="panel-job">
+        <div class="panel-header">
+          <h2 class="panel-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+            </svg>
+            Puesto a Cubrir
+          </h2>
+        </div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label for="job-position" class="form-label">Titulo del puesto <span class="required">*</span></label>
+            <input type="text" id="job-position" class="form-input" placeholder="Ej: Desarrollador Frontend Senior">
+          </div>
+          <div class="form-group">
+            <label for="requirements" class="form-label">Requisitos adicionales del reclutador</label>
+            <textarea id="requirements" class="form-textarea" rows="4" placeholder="Ej: Minimo 3 anos de experiencia en React, conocimiento de TypeScript..."></textarea>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-cvs">
+        <div class="panel-header">
+          <h2 class="panel-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+            </svg>
+            CVs de Candidatos
+          </h2>
+          <span class="cv-counter" id="cv-counter">0 CVs cargados</span>
+        </div>
+        <div class="panel-body">
+          <div class="drop-zone" id="drop-zone">
+            <div class="drop-zone-content">
+              <svg class="drop-zone-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <p class="drop-zone-text">Arrastra archivos PDF aqui o <span class="drop-zone-link">seleccionalos</span></p>
+              <p class="drop-zone-hint">Solo archivos PDF - Maximo 5 MB por archivo</p>
+            </div>
+            <input type="file" id="file-input" multiple accept=".pdf,application/pdf" class="drop-zone-input">
+          </div>
+          <div class="file-list" id="file-list"></div>
+        </div>
+      </section>
+
+      <div class="action-bar">
+        <button class="btn btn-primary btn-lg" id="analyze-btn" type="button" disabled>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+          <span>Analizar CVs con IA</span>
+        </button>
+      </div>
+
+      <section class="loading-section" id="loading-section" style="display: none;">
+        <div class="loading-card">
+          <div class="loading-spinner"></div>
+          <h3 class="loading-title">Analizando CVs...</h3>
+          <p class="loading-text">La IA esta evaluando cada candidato contra los requisitos del puesto.</p>
+          <div class="loading-steps" id="loading-steps">
+            <div class="loading-step active">Extrayendo texto de los CVs</div>
+            <div class="loading-step">Enviando a Groq para analisis</div>
+            <div class="loading-step">Generando ranking de candidatos</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel panel-results" id="panel-results" style="display: none;">
+        <div class="panel-header">
+          <h2 class="panel-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 20V10"/><path d="M6 20v-4"/><path d="M18 20V4"/>
+            </svg>
+            Ranking de Candidatos
+          </h2>
+          <button class="btn btn-outline btn-sm" id="reset-btn" type="button">Nuevo analisis</button>
+        </div>
+        <div class="panel-body" id="results-body"></div>
+      </section>
+
+      <section class="panel panel-best" id="panel-best" style="display: none;">
+        <div class="panel-header">
+          <h2 class="panel-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            Mejor Candidato
+          </h2>
+        </div>
+        <div class="panel-body" id="best-body"></div>
+      </section>
+
+      <section class="panel" id="panel-raw" style="display: none;">
+        <div class="panel-header"><h2 class="panel-title">Respuesta de la IA (sin procesar)</h2></div>
+        <div class="panel-body"><pre class="raw-response" id="raw-response"></pre></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Laboratorio ATS &mdash; Herramienta educativa sobre vulnerabilidades en filtrado automatico.</p>
+    </footer>
+  </div>
+
+  <!-- Customizer flotante -->
+  <button class="customizer-toggle" id="customizer-toggle" title="Personalizar apariencia">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+
+  <div class="customizer-panel" id="customizer-panel">
+    <div class="customizer-header">
+      <span class="customizer-title">Apariencia</span>
+      <button class="customizer-close" id="customizer-close" aria-label="Cerrar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="customizer-body">
+
+      <!-- Tipografia -->
+      <div class="cust-section">
+        <div class="cust-section-label">Tipografia</div>
+        <select class="cust-select" id="font-select">
+          <option value="Montserrat">Montserrat</option>
+          <option value="Inter">Inter</option>
+          <option value="Roboto">Roboto</option>
+          <option value="Poppins">Poppins</option>
+          <option value="Raleway">Raleway</option>
+          <option value="DM Sans">DM Sans</option>
+          <option value="Nunito">Nunito</option>
+          <option value="Sora">Sora</option>
+          <option value="Space Grotesk">Space Grotesk</option>
+          <option value="Outfit">Outfit</option>
+        </select>
+        <p class="cust-preview-text" id="font-preview">El rapido zorro marron salta sobre el perro perezoso</p>
+      </div>
+
+      <!-- Colores -->
+      <div class="cust-section">
+        <div class="cust-section-label">Colores del fondo</div>
+        <div class="cust-row">
+          <label class="cust-color-label">Fondo principal
+            <input type="color" class="cust-color" id="c-bg-primary" value="#0b0d1a">
+          </label>
+          <label class="cust-color-label">Fondo secundario
+            <input type="color" class="cust-color" id="c-bg-secondary" value="#10132a">
+          </label>
+        </div>
+        <div class="cust-row">
+          <label class="cust-color-label">Fondo elevado
+            <input type="color" class="cust-color" id="c-bg-elevated" value="#161a38">
+          </label>
+          <label class="cust-color-label">Glass alpha
+            <input type="range" class="cust-range" id="c-glass-alpha" min="0" max="100" value="75">
+          </label>
+        </div>
+      </div>
+
+      <div class="cust-section">
+        <div class="cust-section-label">Texto</div>
+        <div class="cust-row">
+          <label class="cust-color-label">Principal
+            <input type="color" class="cust-color" id="c-text-primary" value="#eef2ff">
+          </label>
+          <label class="cust-color-label">Secundario
+            <input type="color" class="cust-color" id="c-text-secondary" value="#a5b4fc">
+          </label>
+        </div>
+        <div class="cust-row">
+          <label class="cust-color-label">Muted
+            <input type="color" class="cust-color" id="c-text-muted" value="#6b7cb3">
+          </label>
+        </div>
+      </div>
+
+      <div class="cust-section">
+        <div class="cust-section-label">Acentos (gradiente)</div>
+        <div class="cust-row">
+          <label class="cust-color-label">Color 1
+            <input type="color" class="cust-color" id="c-accent-1" value="#71bbf1">
+          </label>
+          <label class="cust-color-label">Color 2
+            <input type="color" class="cust-color" id="c-accent-2" value="#9c6ce5">
+          </label>
+        </div>
+      </div>
+
+      <div class="cust-section">
+        <div class="cust-section-label">Borde y estado</div>
+        <div class="cust-row">
+          <label class="cust-color-label">Borde
+            <input type="color" class="cust-color" id="c-border" value="#71bbf1">
+          </label>
+          <label class="cust-color-label">Peligro
+            <input type="color" class="cust-color" id="c-danger" value="#c084fc">
+          </label>
+        </div>
+      </div>
+
+      <!-- Acciones -->
+      <div class="cust-actions">
+        <button class="cust-btn-export" id="cust-copy-css">Copiar CSS</button>
+        <button class="cust-btn-reset" id="cust-reset">Resetear</button>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script src="js/customizer.js"></script>
+</body>
+</html>

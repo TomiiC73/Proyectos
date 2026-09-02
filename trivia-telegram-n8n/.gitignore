@@ -1,0 +1,4 @@
+node_modules/
+.env
+.n8n_workflow_id
+shadow.pem

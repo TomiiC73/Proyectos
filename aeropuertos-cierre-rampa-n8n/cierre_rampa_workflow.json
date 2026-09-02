@@ -1,0 +1,2354 @@
+{
+  "name": "Protocolo de Cierre de Rampa - Condiciones Meteorologicas Severas",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-manual-trigger",
+      "name": "Ingesta de Reporte (Manual Trigger)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        180,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const UMBRAL_RAFAGA_CIERRE_KT = 45;\nconst UMBRAL_VIENTO_SOSTENIDO_ALERTA_KT = 30;\nconst UMBRAL_VISIBILIDAD_CIERRE_M = 1500;\nconst VENTANA_MINUTOS = 45;\n\nconst data = $json;\nconst clima = data.reporte_meteorologico;\nconst vuelos = data.vuelos_programados || [];\n\nconst hayTormentaElectrica = !!clima.actividad_electrica;\nconst hayWindshear = !!clima.windshear_reportado;\nconst rafagaKt = (clima.viento && clima.viento.rafaga_kt) || 0;\nconst vientoSostenidoKt = (clima.viento && clima.viento.velocidad_kt) || 0;\nconst visibilidadM = clima.visibilidad_m || 9999;\n\nconst condicionNivel3 =\n  hayTormentaElectrica && (rafagaKt >= UMBRAL_RAFAGA_CIERRE_KT || hayWindshear);\n\nconst condicionNivel2 =\n  !condicionNivel3 &&\n  (hayTormentaElectrica || rafagaKt >= UMBRAL_RAFAGA_CIERRE_KT || visibilidadM <= UMBRAL_VISIBILIDAD_CIERRE_M);\n\nconst condicionNivel1 =\n  !condicionNivel3 && !condicionNivel2 && vientoSostenidoKt >= UMBRAL_VIENTO_SOSTENIDO_ALERTA_KT;\n\nlet riesgoNivel = 0;\nif (condicionNivel3) riesgoNivel = 3;\nelse if (condicionNivel2) riesgoNivel = 2;\nelse if (condicionNivel1) riesgoNivel = 1;\n\nconst ahora = new Date(clima.hora_reporte_utc);\n\nconst vuelosAfectados = vuelos\n  .map((vuelo) => {\n    const horaVuelo = new Date(vuelo.hora_programada_utc);\n    const minutosHastaVuelo = Math.round((horaVuelo.getTime() - ahora.getTime()) / 60000);\n    return Object.assign({}, vuelo, { minutos_hasta_operacion: minutosHastaVuelo });\n  })\n  .filter((vuelo) => vuelo.minutos_hasta_operacion >= 0 && vuelo.minutos_hasta_operacion <= VENTANA_MINUTOS);\n\nconst accionesPorNivel = {\n  0: 'OPERACION_NORMAL',\n  1: 'MONITOREO_ACTIVO',\n  2: 'ALERTA_PREPARAR_CIERRE',\n  3: 'CIERRE_RAMPA',\n};\n\n// Version sin guion bajo, solo para texto libre (Telegram): un \\\"_\\\" suelto se\n// interpreta como inicio de cursiva en Markdown y Telegram rechaza el mensaje\n// entero si no encuentra el cierre (\\\"can't find end of the entity\\\").\nconst accionesPorNivelLegible = {\n  0: 'Operacion Normal',\n  1: 'Monitoreo Activo',\n  2: 'Alerta - Preparar Cierre',\n  3: 'Cierre de Rampa',\n};\n\nconst accionRequerida = accionesPorNivel[riesgoNivel];\nconst accionRequeridaLegible = accionesPorNivelLegible[riesgoNivel];\n\nconst resumen =\n  `Nivel de riesgo ${riesgoNivel} (${accionRequeridaLegible}) en ${clima.estacion}. ` +\n  `Viento ${vientoSostenidoKt}kt, rafagas ${rafagaKt}kt. ` +\n  `Tormenta electrica: ${hayTormentaElectrica ? 'SI' : 'NO'}. ` +\n  `Windshear: ${hayWindshear ? 'SI' : 'NO'}. ` +\n  `${vuelosAfectados.length} vuelo(s) afectado(s) en los proximos ${VENTANA_MINUTOS} minutos.`;\n\nreturn [\n  {\n    json: {\n      riesgo_nivel: riesgoNivel,\n      riesgo_nivel_3: riesgoNivel === 3,\n      accion_requerida: accionRequerida,\n      resumen,\n      cantidad_vuelos_afectados: vuelosAfectados.length,\n      vuelos_afectados: vuelosAfectados,\n      reporte_meteorologico: clima,\n    },\n  },\n];"
+      },
+      "id": "node-code-evaluar",
+      "name": "Evaluar Riesgo Meteorologico",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "r3",
+                    "leftValue": "={{ $json.riesgo_nivel }}",
+                    "rightValue": 3,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Nivel 3 - Cierre Total"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "r2",
+                    "leftValue": "={{ $json.riesgo_nivel }}",
+                    "rightValue": 2,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Nivel 2 - Alerta"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Nivel 0/1 - Normal"
+        }
+      },
+      "id": "node-switch-riesgo",
+      "name": "Switch Nivel de Riesgo",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        620,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "7726117557",
+        "text": "={{ '🚨 CIERRE DE RAMPA - ' + $json.reporte_meteorologico.estacion + '\\n\\n' + $json.resumen + '\\n\\nVuelos afectados:\\n' + $json.vuelos_afectados.map(v => '- ' + v.vuelo + ' (' + v.tipo_operacion + ', posicion ' + v.posicion_rampa + ', en ' + v.minutos_hasta_operacion + ' min)').join('\\n') }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "node-telegram-pista",
+      "name": "Notificar Cierre a Operaciones de Pista",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        900,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "card",
+        "operation": "create",
+        "listId": "6a93bcfaddd4417c88e7cf7a",
+        "name": "={{ 'Asegurar equipos de rampa - Nivel ' + $json.riesgo_nivel + ' - ' + $json.reporte_meteorologico.estacion }}",
+        "additionalFields": {
+          "description": "={{ $json.resumen + '\\n\\nVuelos en plataforma durante la ventana de riesgo:\\n' + $json.vuelos_afectados.map(v => '- ' + v.vuelo + ' (posicion ' + v.posicion_rampa + ')').join('\\n') }}"
+        }
+      },
+      "id": "node-trello-mantenimiento",
+      "name": "Crear Ticket de Mantenimiento",
+      "type": "n8n-nodes-base.trello",
+      "typeVersion": 1,
+      "position": [
+        900,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Nodo Code: \"Construir HTML del Reporte\"\n// Genera el HTML (+ footer de paginacion) del reporte de incidente con\n// identidad visual propia (Aeropuertos Argentina 2000) para convertirlo a PDF\n// en el nodo siguiente via Gotenberg. Reemplaza al viejo \"Registrar Auditoria\"\n// en Google Sheets: ahora el registro del incidente es este PDF.\n\nconst data = $json;\nconst clima = data.reporte_meteorologico || {};\nconst vuelos = data.vuelos_afectados || [];\nconst nivel = data.riesgo_nivel;\n\n// Paleta propia (petroleo + dorado + terracota), NO colores semanticos de\n// framework: los dos niveles de severidad son variaciones tonales de la MISMA\n// paleta calida, no un semaforo azul/amarillo/rojo generico.\nconst BRAND = '#0B3B39';\nconst ACCENT_NIVEL2 = '#C08A2E';\nconst ACCENT_NIVEL2_SUAVE = '#F5EBD8';\nconst ACCENT_NIVEL3 = '#8C3A2E';\nconst ACCENT_NIVEL3_SUAVE = '#F2E2DE';\n\nconst colorNivel = nivel === 3 ? ACCENT_NIVEL3 : nivel === 2 ? ACCENT_NIVEL2 : BRAND;\nconst colorNivelSuave = nivel === 3 ? ACCENT_NIVEL3_SUAVE : nivel === 2 ? ACCENT_NIVEL2_SUAVE : '#EAEFEE';\nconst etiquetasNivel = { 2: 'Alerta - Preparar Cierre', 3: 'Cierre de Rampa' };\nconst etiquetaNivel = etiquetasNivel[nivel] || 'Reporte Operacional';\nconst generadoEl = new Date().toISOString();\nconst referencia = 'RPT-' + Date.now();\n\n// Hash corto y determinista del contenido, solo para que el pie tecnico se\n// sienta como el checksum de un sistema real (no es criptografico).\nfunction hashCorto(texto) {\n  let h = 5381;\n  for (let i = 0; i < texto.length; i++) h = (h * 33) ^ texto.charCodeAt(i);\n  return (h >>> 0).toString(16).toUpperCase().padStart(8, '0');\n}\nconst hashReporte = hashCorto(referencia + (data.resumen || '') + generadoEl);\n\n// Isotipo: no es un icono generico de libreria (flecha/pin) sino un motivo de\n// radar de control de trafico aereo (anillos de barrido + blip), a juego con\n// la paleta propia.\nconst svgRadar =\n  '<svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">' +\n  '<circle cx=\"12\" cy=\"12\" r=\"9.5\" stroke=\"white\" stroke-opacity=\"0.22\" stroke-width=\"1\"/>' +\n  '<circle cx=\"12\" cy=\"12\" r=\"6.2\" stroke=\"white\" stroke-opacity=\"0.4\" stroke-width=\"1\"/>' +\n  '<circle cx=\"12\" cy=\"12\" r=\"3\" stroke=\"white\" stroke-opacity=\"0.65\" stroke-width=\"1\"/>' +\n  `<line x1=\"12\" y1=\"12\" x2=\"19\" y2=\"6\" stroke=\"${ACCENT_NIVEL2}\" stroke-width=\"1.4\" stroke-linecap=\"round\"/>` +\n  `<circle cx=\"12\" cy=\"12\" r=\"1.3\" fill=\"${ACCENT_NIVEL2}\"/>` +\n  '</svg>';\n\nconst filasVuelos = vuelos.length\n  ? vuelos\n      .map(\n        (v) => `\n    <tr>\n      <td class=\"flight\">${v.vuelo || ''}</td>\n      <td>${v.aerolinea || ''}</td>\n      <td>${v.tipo_operacion || ''}</td>\n      <td>${v.posicion_rampa || ''}</td>\n      <td class=\"num\">${v.minutos_hasta_operacion != null ? v.minutos_hasta_operacion + ' min' : '-'}</td>\n    </tr>`,\n      )\n      .join('')\n  : '<tr><td colspan=\"5\" style=\"text-align:center;color:#74827D;padding:24px;\">Sin vuelos afectados en la ventana evaluada</td></tr>';\n\nconst html = `<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n<meta charset=\"utf-8\" />\n<link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap\">\n<style>\n  :root {\n    --brand: ${BRAND};\n    --ink: #16221F;\n    --ink-soft: #3F4D49;\n    --muted: #74827D;\n    --line: #E1E6E3;\n    --surface: #F6F7F5;\n    --accent: ${colorNivel};\n    --accent-soft: ${colorNivelSuave};\n  }\n  * { box-sizing: border-box; }\n  html, body { margin: 0; padding: 0; }\n  body {\n    font-family: 'IBM Plex Sans', Georgia, 'Segoe UI', sans-serif;\n    color: var(--ink);\n    font-size: 13.5px;\n    line-height: 1.5;\n    -webkit-font-smoothing: antialiased;\n    position: relative;\n  }\n  .watermark {\n    position: fixed;\n    top: 46%;\n    left: 50%;\n    transform: translate(-50%, -50%) rotate(-24deg);\n    font-size: 64px;\n    font-weight: 700;\n    letter-spacing: 0.06em;\n    color: var(--brand);\n    opacity: 0.035;\n    white-space: nowrap;\n    z-index: 0;\n  }\n  .page { position: relative; z-index: 1; padding: 40px 48px 28px; }\n\n  .masthead { display: flex; align-items: center; justify-content: space-between; padding-bottom: 18px; border-bottom: 1px solid var(--line); }\n  .brand { display: flex; align-items: center; gap: 11px; }\n  .brand-mark { width: 38px; height: 38px; border-radius: 10px; background: var(--brand); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }\n  .brand-name { font-size: 11px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; color: var(--brand); }\n  .brand-sub { font-size: 10px; color: var(--muted); letter-spacing: 0.03em; margin-top: 2px; }\n  .meta { text-align: right; font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 9.5px; color: var(--muted); line-height: 1.7; }\n\n  .hero { margin-top: 40px; margin-bottom: 36px; }\n  .kicker { margin: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }\n  .hero h1 { margin: 0 0 22px; font-size: 27px; font-weight: 600; letter-spacing: -0.01em; color: var(--brand); max-width: 480px; }\n  .severity-strip { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-radius: 10px; background: var(--accent-soft); }\n  .severity-strip .label { display: flex; align-items: center; gap: 9px; font-size: 13.5px; font-weight: 600; color: var(--accent); }\n  .severity-strip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }\n  .severity-strip .rule { flex: 1; height: 1px; background: var(--accent); opacity: 0.25; margin: 0 18px; }\n  .severity-strip .n { font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 11px; color: var(--accent); opacity: 0.85; }\n\n  .summary { margin-top: 18px; font-size: 13px; color: var(--ink-soft); line-height: 1.65; max-width: 620px; }\n\n  .grid { margin-top: 26px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }\n  .card { border: 1px solid var(--line); border-radius: 8px; padding: 13px 15px; }\n  .card h3 { margin: 0 0 9px; font-size: 9.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }\n  .stat-row { display: flex; align-items: baseline; justify-content: space-between; padding: 3px 0; }\n  .stat-label { font-size: 11.5px; color: var(--muted); }\n  .stat-value { font-size: 12.5px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }\n  .stat-value.lg { font-size: 16px; font-weight: 600; color: var(--brand); }\n\n  .terminal { margin-top: 10px; border-radius: 8px; overflow: hidden; border: 1px solid #0A2A28; }\n  .terminal-bar { display: flex; align-items: center; justify-content: space-between; background: #0A2A28; padding: 7px 12px; }\n  .terminal-bar .dots { display: flex; gap: 4px; }\n  .terminal-bar .dots span { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.25); }\n  .terminal-bar .label { font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 9px; letter-spacing: 0.1em; color: rgba(255,255,255,0.5); text-transform: uppercase; }\n  .terminal-body { padding: 12px 14px; background: var(--brand); color: #CFE3E0; font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 10.5px; letter-spacing: 0.01em; word-break: break-all; }\n\n  .section-label { margin: 30px 0 2px; font-size: 9.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }\n  table { width: 100%; border-collapse: collapse; margin-top: 10px; border-top: 2px solid var(--brand); }\n  thead th { text-align: left; font-size: 9.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 8px 10px 6px; }\n  thead th:last-child { text-align: right; }\n  tbody td { padding: 8px 10px; font-size: 12.5px; color: var(--ink-soft); border-bottom: 1px solid var(--surface); }\n  tbody tr:last-child td { border-bottom: none; }\n  td.num { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 500; }\n  td.flight { font-weight: 600; color: var(--brand); }\n\n  .tech-footer { margin-top: 44px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 9px; color: var(--muted); letter-spacing: 0.02em; }\n</style>\n</head>\n<body>\n  <div class=\"watermark\">AA2000 &middot; OPERACIONAL</div>\n  <div class=\"page\">\n    <div class=\"masthead\">\n      <div class=\"brand\">\n        <div class=\"brand-mark\">${svgRadar}</div>\n        <div>\n          <div class=\"brand-name\">Aeropuertos Argentina 2000</div>\n          <div class=\"brand-sub\">Operaciones de Rampa</div>\n        </div>\n      </div>\n      <div class=\"meta\">REF ${referencia}<br/>${generadoEl}</div>\n    </div>\n\n    <div class=\"hero\">\n      <p class=\"kicker\">Protocolo de Cierre de Rampa</p>\n      <h1>Reporte de Incidente Operacional</h1>\n      <div class=\"severity-strip\">\n        <span class=\"label\"><span class=\"dot\"></span>Nivel ${nivel} &middot; ${etiquetaNivel}</span>\n        <span class=\"rule\"></span>\n        <span class=\"n\">${clima.estacion || '-'}</span>\n      </div>\n      <div class=\"summary\">${data.resumen || ''}</div>\n    </div>\n\n    <div class=\"grid\">\n      <div class=\"card\">\n        <h3>Estacion</h3>\n        <div class=\"stat-row\"><span class=\"stat-label\">Codigo</span><span class=\"stat-value lg\">${clima.estacion || '-'}</span></div>\n        <div class=\"stat-row\"><span class=\"stat-label\">Nombre</span><span class=\"stat-value\">${clima.nombre_estacion || '-'}</span></div>\n        <div class=\"stat-row\"><span class=\"stat-label\">Hora de reporte (UTC)</span><span class=\"stat-value\">${clima.hora_reporte_utc || '-'}</span></div>\n      </div>\n      <div class=\"card\">\n        <h3>Condiciones de Viento</h3>\n        <div class=\"stat-row\"><span class=\"stat-label\">Sostenido</span><span class=\"stat-value\">${(clima.viento && clima.viento.velocidad_kt) || 0} kt</span></div>\n        <div class=\"stat-row\"><span class=\"stat-label\">Rafaga</span><span class=\"stat-value\">${(clima.viento && clima.viento.rafaga_kt) || 0} kt</span></div>\n        <div class=\"stat-row\"><span class=\"stat-label\">Visibilidad</span><span class=\"stat-value\">${clima.visibilidad_m || '-'} m</span></div>\n        <div class=\"stat-row\"><span class=\"stat-label\">Tormenta / Windshear</span><span class=\"stat-value\">${clima.actividad_electrica ? 'Si' : 'No'} / ${clima.windshear_reportado ? 'Si' : 'No'}</span></div>\n      </div>\n    </div>\n\n    <div class=\"terminal\">\n      <div class=\"terminal-bar\">\n        <span class=\"label\">Datos Raw &middot; METAR</span>\n        <span class=\"dots\"><span></span><span></span><span></span></span>\n      </div>\n      <div class=\"terminal-body\">${clima.metar_crudo || 'METAR no disponible'}</div>\n    </div>\n\n    <p class=\"section-label\">Vuelos Afectados (${vuelos.length})</p>\n    <table>\n      <thead><tr><th>Vuelo</th><th>Aerolinea</th><th>Operacion</th><th>Posicion</th><th>Ventana</th></tr></thead>\n      <tbody>${filasVuelos}</tbody>\n    </table>\n\n    <div class=\"tech-footer\">\n      <span>Sistema de Triage Operacional &middot; v2.4.0</span>\n      <span>SHA ${hashReporte}</span>\n    </div>\n  </div>\n</body>\n</html>`;\n\nconst footerHtml = `<!DOCTYPE html>\n<html>\n<head>\n<style>\n  * { margin: 0; padding: 0; box-sizing: border-box; }\n  body { width: 100%; font-family: Consolas, 'Liberation Mono', Menlo, monospace; font-size: 8px; color: #74827D; }\n  table { width: 100%; border-collapse: collapse; }\n  td { padding: 0 48px; white-space: nowrap; }\n  td.right { text-align: right; }\n</style>\n</head>\n<body>\n  <table><tr>\n    <td>SISTEMA DE TRIAGE OPERACIONAL &middot; AA2000</td>\n    <td class=\"right\"><span class=\"pageNumber\"></span> / <span class=\"totalPages\"></span></td>\n  </tr></table>\n</body>\n</html>`;\n\nconst binaryHtml = await this.helpers.prepareBinaryData(Buffer.from(html, 'utf-8'), 'index.html', 'text/html');\nconst binaryFooter = await this.helpers.prepareBinaryData(Buffer.from(footerHtml, 'utf-8'), 'footer.html', 'text/html');\n\nreturn [{ json: data, binary: { data: binaryHtml, footer: binaryFooter } }];\n"
+      },
+      "id": "node-code-construir-html",
+      "name": "Construir HTML del Reporte",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://gotenberg:3000/forms/chromium/convert/html",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "files",
+              "inputDataFieldName": "data"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "files",
+              "inputDataFieldName": "footer"
+            },
+            {
+              "name": "marginTop",
+              "value": "0.5"
+            },
+            {
+              "name": "marginBottom",
+              "value": "0.6"
+            },
+            {
+              "name": "marginLeft",
+              "value": "0.4"
+            },
+            {
+              "name": "marginRight",
+              "value": "0.4"
+            },
+            {
+              "name": "printBackground",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "node-http-gotenberg",
+      "name": "Generar PDF (Gotenberg)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "tomicarrio73@gmail.com",
+        "toEmail": "tomicarrio73@gmail.com",
+        "subject": "={{ 'ALERTA OPERACIONAL - Cierre de Rampa Nivel ' + $json.riesgo_nivel + ' - ' + $json.reporte_meteorologico.estacion }}",
+        "text": "={{ $json.resumen + '\\n\\nMETAR: ' + $json.reporte_meteorologico.metar_crudo + '\\n\\nVuelos afectados: ' + $json.cantidad_vuelos_afectados + '\\n\\nSe adjunta el reporte completo en PDF.' }}",
+        "options": {
+          "attachments": "data"
+        }
+      },
+      "id": "node-gmail-terminal",
+      "name": "Enviar Alerta a Terminal",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1560,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendDocument",
+        "chatId": "7726117557",
+        "binaryData": true,
+        "binaryPropertyName": "data",
+        "additionalFields": {
+          "caption": "={{ 'Reporte de Incidente - Nivel ' + $json.riesgo_nivel + ' - ' + $json.reporte_meteorologico.estacion }}",
+          "appendAttribution": false
+        }
+      },
+      "id": "node-telegram-pdf",
+      "name": "Enviar Reporte PDF por Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1560,
+        700
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "YlPaHlswUd7aLC84",
+          "name": "Telegram account 3"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "node-noop-normal",
+      "name": "Sin Accion Requerida",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        900,
+        820
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds",
+              "secondsInterval": 10
+            }
+          ]
+        }
+      },
+      "id": "node-schedule-trigger",
+      "name": "Disparador Programado (Cada 10s)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        180,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg1",
+              "name": "aeropuerto_iata",
+              "value": "EZE",
+              "type": "string"
+            },
+            {
+              "id": "cfg2",
+              "name": "aeropuerto_lat",
+              "value": -34.8222,
+              "type": "number"
+            },
+            {
+              "id": "cfg3",
+              "name": "aeropuerto_lon",
+              "value": -58.5358,
+              "type": "number"
+            },
+            {
+              "id": "cfg4",
+              "name": "umbral_combustible_critico_min",
+              "value": 45,
+              "type": "number"
+            },
+            {
+              "id": "cfg5",
+              "name": "demora_cierre_min",
+              "value": 90,
+              "type": "number"
+            },
+            {
+              "id": "cfg6",
+              "name": "refresco_apis_min",
+              "value": 5,
+              "type": "number"
+            },
+            {
+              "id": "cfg7",
+              "name": "openweather_api_key",
+              "value": "TU_OPENWEATHER_API_KEY",
+              "type": "string"
+            },
+            {
+              "id": "cfg8",
+              "name": "aviationstack_api_key",
+              "value": "TU_AVIATIONSTACK_API_KEY",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-set-configuracion",
+      "name": "Configuracion (Editar Aca)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        400,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Gate de rate-limiting: no queremos golpear OpenWeatherMap/AviationStack cada\n// 10 segundos (los planes gratuitos no lo soportan). El Schedule Trigger corre\n// cada 10s para que el MOTOR DE TRIAGE reaccione rapido sobre datos ya conocidos,\n// pero las llamadas HTTP reales solo se disparan cada `refresco_apis_min` minutos,\n// usando workflow static data como cache entre ejecuciones. Se cachean los DOS\n// formatos (Triage y Cierre de Rampa) para que ambos sistemas fusionados puedan\n// reusar el mismo dato en vivo sin volver a llamar a las APIs externas.\n\nconst data = $getWorkflowStaticData('global');\nconst config = $('Configuracion (Editar Aca)').first().json;\nconst refrescoMs = (config.refresco_apis_min || 5) * 60000;\nconst ahora = Date.now();\nconst ultimaConsulta = data.ultimaConsultaApisTimestamp || 0;\nconst necesitaRefresco = (ahora - ultimaConsulta) >= refrescoMs;\n\nreturn [\n  {\n    json: {\n      necesita_refresco: necesitaRefresco,\n      meteorologia_cacheada: data.meteorologiaCacheada || null,\n      vuelos_activos_cacheados: data.vuelosActivosCacheados || null,\n      reporte_meteorologico_cacheado: data.reporteMeteorologicoCacheado || null,\n      vuelos_programados_cacheados: data.vuelosProgramadosCacheados || null,\n    },\n  },\n];"
+      },
+      "id": "node-code-verificar-refresco",
+      "name": "Verificar Necesidad de Refresco",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        620,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "ref1",
+              "leftValue": "={{ $json.necesita_refresco }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-necesita-refresco",
+      "name": "Necesita Refresco de APIs?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        840,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.openweathermap.org/data/2.5/weather",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "lat",
+              "value": "={{ $('Configuracion (Editar Aca)').first().json.aeropuerto_lat }}"
+            },
+            {
+              "name": "lon",
+              "value": "={{ $('Configuracion (Editar Aca)').first().json.aeropuerto_lon }}"
+            },
+            {
+              "name": "appid",
+              "value": "={{ $('Configuracion (Editar Aca)').first().json.openweather_api_key }}"
+            },
+            {
+              "name": "units",
+              "value": "metric"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-http-clima",
+      "name": "Consultar Clima Real (OpenWeatherMap)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1060,
+        1180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://api.aviationstack.com/v1/flights",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "access_key",
+              "value": "={{ $('Configuracion (Editar Aca)').first().json.aviationstack_api_key }}"
+            },
+            {
+              "name": "arr_iata",
+              "value": "={{ $('Configuracion (Editar Aca)').first().json.aeropuerto_iata }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-http-vuelos-arribos",
+      "name": "Consultar Vuelos Arribos Real (AviationStack)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1060,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://api.aviationstack.com/v1/flights",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "access_key",
+              "value": "={{ $('Configuracion (Editar Aca)').first().json.aviationstack_api_key }}"
+            },
+            {
+              "name": "dep_iata",
+              "value": "={{ $('Configuracion (Editar Aca)').first().json.aeropuerto_iata }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-http-vuelos-salidas",
+      "name": "Consultar Vuelos Salidas Real (AviationStack)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1060,
+        1420
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Capa de normalizacion (Anti-Corruption Layer): traduce las respuestas crudas\n// de OpenWeatherMap y AviationStack a DOS contratos internos que comparten el\n// mismo dato en vivo: el formato del motor de Triage (meteorologia + vuelos_activos)\n// y el formato del motor original de Cierre de Rampa por Tormenta\n// (reporte_meteorologico + vuelos_programados). Asi los dos sistemas construidos\n// en este workflow quedan fusionados sobre una unica ingesta en tiempo real.\n\nconst clima = $('Consultar Clima Real (OpenWeatherMap)').first().json;\nconst arribos = ($('Consultar Vuelos Arribos Real (AviationStack)').first().json.data) || [];\nconst salidas = ($('Consultar Vuelos Salidas Real (AviationStack)').first().json.data) || [];\nconst config = $('Configuracion (Editar Aca)').first().json;\n\n// --- Normalizar meteorologia (formato Triage) ---\n// Codigos 200-232 de OpenWeatherMap son el grupo \"Thunderstorm\".\nconst CODIGOS_TORMENTA_OWM = [200, 201, 202, 210, 211, 212, 221, 230, 231, 232];\nconst vientoMps = (clima.wind && clima.wind.speed) || 0;\nconst rafagaMps = (clima.wind && clima.wind.gust) || vientoMps;\nconst tieneTormenta = Array.isArray(clima.weather) && clima.weather.some((w) => CODIGOS_TORMENTA_OWM.includes(w.id));\nconst rafagaKt = Math.round(rafagaMps * 1.94384);\nconst vientoKt = Math.round(vientoMps * 1.94384);\n\nconst meteorologia = {\n  tipo_alerta: tieneTormenta ? 'Tormenta Electrica Severa' : 'Sin alerta critica',\n  rafagas_viento_kt: rafagaKt,\n  actividad_electrica: tieneTormenta,\n};\n\n// --- Mismo dato, en el formato que espera \"Evaluar Riesgo Meteorologico\" (el\n// nodo original del Protocolo de Cierre de Rampa). AVISO: OpenWeatherMap no\n// reporta windshear ni METAR crudo; ninguna API publica y gratuita expone esos\n// dos datos, por eso se documentan explicitamente como no disponibles.\nconst reporte_meteorologico = {\n  estacion: config.aeropuerto_iata,\n  nombre_estacion: clima.name || config.aeropuerto_iata,\n  hora_reporte_utc: new Date((clima.dt || Math.floor(Date.now() / 1000)) * 1000).toISOString(),\n  metar_crudo: (Array.isArray(clima.weather) && clima.weather[0]) ? clima.weather[0].description : 'No disponible (fuera de alcance de OpenWeatherMap)',\n  viento: {\n    direccion_grados: (clima.wind && clima.wind.deg) || 0,\n    velocidad_kt: vientoKt,\n    rafaga_kt: rafagaKt,\n  },\n  visibilidad_m: typeof clima.visibility === 'number' ? clima.visibility : 9999,\n  fenomenos: Array.isArray(clima.weather) ? clima.weather.map((w) => w.main) : [],\n  actividad_electrica: tieneTormenta,\n  windshear_reportado: false,\n};\n\n// --- Normalizar vuelos en aproximacion (Rama A del Triage) ---\n// No se estima combustible remanente: ninguna API publica expone ese dato\n// real (es propietario ACARS/OOOI de cada aerolinea), asi que no se inventa\n// un numero para tomar decisiones automaticas sobre eso.\nconst vuelosEnAproximacion = arribos\n  .filter((v) => v.flight_status === 'active')\n  .map((v) => ({\n    id_vuelo: (v.flight && v.flight.iata) || 'DESCONOCIDO',\n    aerolinea: (v.airline && v.airline.name) || 'Desconocida',\n    tipo_aeronave: (v.aircraft && v.aircraft.iata) || 'No informado',\n    estado_operativo: 'en_aproximacion',\n    hora_programada_original: (v.arrival && (v.arrival.estimated || v.arrival.scheduled)) || null,\n  }));\n\n// --- Normalizar vuelos en tierra (Rama B del Triage) ---\nconst vuelosEnTierra = salidas\n  .filter((v) => v.flight_status === 'scheduled')\n  .map((v) => {\n    const scheduled = v.departure && v.departure.scheduled;\n    const minutosParaSalida = scheduled ? Math.round((new Date(scheduled).getTime() - Date.now()) / 60000) : 999;\n    return {\n      id_vuelo: (v.flight && v.flight.iata) || 'DESCONOCIDO',\n      aerolinea: (v.airline && v.airline.name) || 'Desconocida',\n      tipo_aeronave: (v.aircraft && v.aircraft.iata) || 'No informado',\n      estado_operativo: minutosParaSalida <= 20 ? 'listo_para_pushback' : 'embarcando',\n      hora_programada_original: scheduled || null,\n    };\n  });\n\nconst vuelosActivos = vuelosEnAproximacion.concat(vuelosEnTierra);\n\n// --- Mismo listado, en el formato que espera \"Evaluar Riesgo Meteorologico\" ---\nconst vuelos_programados = vuelosActivos.map((v) => ({\n  vuelo: v.id_vuelo,\n  aerolinea: v.aerolinea,\n  aeronave: v.tipo_aeronave,\n  matricula: 'No informado',\n  tipo_operacion: v.estado_operativo === 'en_aproximacion' ? 'aterrizaje' : 'despegue',\n  origen: v.estado_operativo === 'en_aproximacion' ? 'N/D' : config.aeropuerto_iata,\n  destino: v.estado_operativo === 'en_aproximacion' ? config.aeropuerto_iata : 'N/D',\n  hora_programada_utc: v.hora_programada_original,\n  posicion_rampa: 'N/D',\n  estado: v.estado_operativo,\n}));\n\n// Cachear TODO (los dos formatos) para las ejecuciones (cada 10s) que no\n// necesiten volver a golpear las APIs externas.\nconst data = $getWorkflowStaticData('global');\ndata.ultimaConsultaApisTimestamp = Date.now();\ndata.meteorologiaCacheada = meteorologia;\ndata.vuelosActivosCacheados = vuelosActivos;\ndata.reporteMeteorologicoCacheado = reporte_meteorologico;\ndata.vuelosProgramadosCacheados = vuelos_programados;\n\nreturn [{ json: { meteorologia, vuelos_activos: vuelosActivos, reporte_meteorologico, vuelos_programados } }];"
+      },
+      "id": "node-code-normalizar",
+      "name": "Normalizar Datos de APIs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const cache = $json;\nreturn [\n  {\n    json: {\n      meteorologia: cache.meteorologia_cacheada,\n      vuelos_activos: cache.vuelos_activos_cacheados,\n      reporte_meteorologico: cache.reporte_meteorologico_cacheado,\n      vuelos_programados: cache.vuelos_programados_cacheados,\n    },\n  },\n];"
+      },
+      "id": "node-code-usar-cache",
+      "name": "Usar Datos en Cache",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        840,
+        1500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "splitOutItems",
+        "fieldToSplitOut": "vuelos_activos",
+        "options": {}
+      },
+      "id": "node-itemlists-vuelos",
+      "name": "Desarmar Vuelos Activos",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 3,
+      "position": [
+        1500,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "t1",
+                    "leftValue": "={{ $json.estado_operativo }}",
+                    "rightValue": "en_aproximacion",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Rama A - En Aproximacion"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Rama B - En Tierra"
+        }
+      },
+      "id": "node-switch-triage",
+      "name": "Switch Triage por Estado",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1720,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const DEMORA_ESTIMADA_MINUTOS = 90;\n\nconst vuelo = $json;\nconst etdOriginal = new Date(vuelo.hora_programada_original);\nconst nuevoEtd = new Date(etdOriginal.getTime() + DEMORA_ESTIMADA_MINUTOS * 60000);\n\nreturn [\n  {\n    json: {\n      id_vuelo: vuelo.id_vuelo,\n      aerolinea: vuelo.aerolinea,\n      estado_operativo: vuelo.estado_operativo,\n      hora_programada_original: vuelo.hora_programada_original,\n      demora_aplicada_minutos: DEMORA_ESTIMADA_MINUTOS,\n      nuevo_ETD_estimado: nuevoEtd.toISOString(),\n    },\n  },\n];"
+      },
+      "id": "node-code-nuevo-etd",
+      "name": "Calcular Nuevo ETD",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1940,
+        1400
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const estacion = ($json.reporte_meteorologico && $json.reporte_meteorologico.estacion) || 'INCIDENTE';\nconst fecha = new Date().toISOString().slice(0, 10);\nconst nombreArchivo = `Reporte Riesgos - ${estacion} - ${fecha}.pdf`;\n\nreturn {\n  json: $json,\n  binary: {\n    data: {\n      ...$binary.data,\n      fileName: nombreArchivo,\n      mimeType: 'application/pdf',\n    },\n  },\n};"
+      },
+      "id": "node-code-nombrar-pdf",
+      "name": "Nombrar Archivo PDF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        620
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "node-noop-aproximacion",
+      "name": "Vuelos en Aproximacion (Sin Accion Automatica)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1940,
+        1180
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Llama a Ollama (IA local) UNA vez por incidente, en serie (await en un for),\n// para no saturar el unico slot de inferencia del contenedor (VM sin GPU, 2 vCPU).\n// Si una llamada falla o tarda demas, ese incidente cae a un valor por defecto\n// seguro (pista_cerrada:false) en vez de abortar toda la ejecucion.\n\nconst SYSTEM_PROMPT = \"Sos un sistema experto en extraccion de datos aeronauticos (NOTAM). Tu unica tarea es leer el texto crudo de un NOTAM y devolver EXCLUSIVAMENTE un objeto JSON valido, sin texto adicional, sin explicaciones, sin markdown, sin backticks.\\n\\nEsquema exacto de salida (todas las claves son obligatorias):\\n{\\n  \\\"aeropuerto_afectado\\\": string (codigo ICAO de 4 letras, o \\\"DESCONOCIDO\\\" si no se puede determinar),\\n  \\\"pista_afectada\\\": string (ej. \\\"11/29\\\", o \\\"N/D\\\" si no aplica o no se menciona),\\n  \\\"motivo\\\": string (resumen breve en espanol del contenido del segmento E) del NOTAM, en pocas palabras, describiendo la causa real: p. ej. \\\"cierre por tormenta y windshear\\\", \\\"niebla, visibilidad bajo minimos\\\", \\\"luces de calle de rodaje fuera de servicio por mantenimiento\\\"),\\n  \\\"pista_cerrada\\\": boolean (true unicamente si el segmento E) indica cierre total de una pista, ej. contiene \\\"RWY ... CLSD\\\"; false si es una restriccion parcial, mantenimiento de taxiway/luces, o no aplica),\\n  \\\"severidad\\\": \\\"BAJA\\\" | \\\"MEDIA\\\" | \\\"ALTA\\\"\\n}\\n\\nReglas:\\n- El codigo ICAO del aeropuerto afectado esta casi siempre en el segmento Q), inmediatamente despues de \\\"Q)\\\". Ejemplo: en \\\"Q)SAEZ/QMRLC/...\\\" el aeropuerto es SAEZ. Usa ese codigo para \\\"aeropuerto_afectado\\\".\\n- En \\\"pista_afectada\\\" escribi solo el numero de pista (ej \\\"11/29\\\"), sin la palabra RWY. Si no hay pista mencionada usa \\\"N/D\\\".\\n- No inventes datos que no esten en el texto: usa \\\"DESCONOCIDO\\\" o \\\"N/D\\\" cuando corresponda.\\n- Tu respuesta debe empezar con \\\"{\\\" y terminar con \\\"}\\\". Nada de texto antes o despues.\";\n\nconst items = $input.all();\nconst resultados = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n  try {\n    const respuesta = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'http://ollama:11434/api/chat',\n      body: {\n        model: 'qwen2.5:1.5b-instruct-q4_0',\n        stream: false,\n        format: 'json',\n        messages: [\n          { role: 'system', content: SYSTEM_PROMPT },\n          { role: 'user', content: item.json.notam_crudo },\n        ],\n      },\n      json: true,\n      timeout: 60000,\n    });\n    resultados.push({ json: respuesta, pairedItem: i });\n  } catch (error) {\n    resultados.push({\n      json: {\n        message: { role: 'assistant', content: '{}' },\n        error: 'Fallo la llamada a Ollama: ' + error.message,\n      },\n      pairedItem: i,\n    });\n  }\n}\n\nreturn resultados;"
+      },
+      "id": "node-openai-notam",
+      "name": "Extraer NOTAM con IA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "function haversineKm(lat1, lon1, lat2, lon2) {\n  const R = 6371;\n  const toRad = (deg) => (deg * Math.PI) / 180;\n  const dLat = toRad(lat2 - lat1);\n  const dLon = toRad(lon2 - lon1);\n  const a =\n    Math.sin(dLat / 2) ** 2 +\n    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;\n  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));\n  return R * c;\n}\n\nconst MARGEN_SEGURIDAD_KM = 50;\n\n// El nodo de IA reemplaza $json por su propia respuesta -- el incidente\n// original (con tormenta_activa y vuelos_en_ruta) se recupera referenciando\n// el trigger directamente. Se usa `.item` (no `.first()`) para que, con 17\n// incidentes pineados, cada ejecucion tome el incidente que le corresponde a\n// ESTA rama puntual, no siempre el primero del pinData.\nconst incidente = $('Ingesta de Reporte (Manual Trigger)').item.json;\nconst tormenta = incidente.tormenta_activa;\nconst vuelos = incidente.vuelos_en_ruta || [];\n\n// Respuesta cruda de la IA: la forma exacta puede variar segun la version del\n// nodo OpenAI de n8n, se prueban las variantes mas comunes antes de fallar.\nconst respuestaIA = $json;\nconst textoIA =\n  (respuestaIA.message && respuestaIA.message.content) ||\n  respuestaIA.content ||\n  respuestaIA.text ||\n  '';\n\nlet notam = {\n  aeropuerto_afectado: 'DESCONOCIDO',\n  pista_afectada: 'N/D',\n  motivo: 'No se pudo interpretar la respuesta de la IA',\n  pista_cerrada: false,\n  severidad: 'BAJA',\n};\n\ntry {\n  notam = JSON.parse(textoIA);\n} catch (e) {\n  // Se deja el valor por defecto (pista_cerrada: false): un NOTAM mal\n  // interpretado por la IA no puede, por si solo, forzar un desvio.\n}\n\nconst vuelosEvaluados = vuelos.map((vuelo) => {\n  const distanciaKm = haversineKm(vuelo.latitud, vuelo.longitud, tormenta.latitud, tormenta.longitud);\n  const alertaColision = distanciaKm <= tormenta.radio_impacto_km + MARGEN_SEGURIDAD_KM;\n  const pistaCerradaEnDestino = notam.pista_cerrada === true && vuelo.destino === notam.aeropuerto_afectado;\n  const desvioRequerido = alertaColision || pistaCerradaEnDestino;\n\n  return {\n    id_vuelo: vuelo.id_vuelo,\n    destino: vuelo.destino,\n    altitud_ft: vuelo.altitud_ft,\n    distancia_a_tormenta_km: Math.round(distanciaKm),\n    radio_impacto_km: tormenta.radio_impacto_km,\n    alerta_colision_climatica: alertaColision,\n    pista_cerrada_en_destino: pistaCerradaEnDestino,\n    notam_aeropuerto_afectado: notam.aeropuerto_afectado,\n    notam_motivo: notam.motivo,\n    notam_severidad: notam.severidad,\n    desvio_requerido: desvioRequerido,\n    accion_sugerida: desvioRequerido ? 'Desviar a aeropuerto alterno (Reroute)' : 'Continuar ruta normal',\n  };\n});\n\nreturn vuelosEvaluados.map((v) => ({ json: v }));"
+      },
+      "id": "node-code-combinar-notam-geo",
+      "name": "Combinar NOTAM y Evaluar Colision Climatica",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "desvio1",
+              "leftValue": "={{ $json.desvio_requerido }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-motor-decision",
+      "name": "Motor de Decision - Triage Final",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        900,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "7726117557",
+        "text": "={{ '🚨 DESVIO REQUERIDO - ' + $json.id_vuelo + '\\n\\n' + 'Destino original: ' + $json.destino + '\\nAltitud: ' + $json.altitud_ft + ' ft\\n\\n' + ($json.alerta_colision_climatica ? ('Colision climatica: SI (' + $json.distancia_a_tormenta_km + ' km de la tormenta, radio+margen ' + ($json.radio_impacto_km + 50) + ' km)\\n') : '') + ($json.pista_cerrada_en_destino ? ('Pista cerrada en destino segun NOTAM: SI (' + $json.notam_motivo + ')\\n') : '') + '\\nAccion sugerida: ' + $json.accion_sugerida }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "node-telegram-emergencia-desvio",
+      "name": "Alertar Emergencia - Desvio a Alterno",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1140,
+        820
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "YlPaHlswUd7aLC84",
+          "name": "Telegram account 3"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "node-noop-vuelo-normal",
+      "name": "Vuelo Sin Riesgo Detectado",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        980
+      ]
+    }
+  ],
+  "connections": {
+    "Ingesta de Reporte (Manual Trigger)": {
+      "main": [
+        [
+          {
+            "node": "Evaluar Riesgo Meteorologico",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extraer NOTAM con IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Disparador Programado (Cada 10s)": {
+      "main": [
+        [
+          {
+            "node": "Configuracion (Editar Aca)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuracion (Editar Aca)": {
+      "main": [
+        [
+          {
+            "node": "Verificar Necesidad de Refresco",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Necesidad de Refresco": {
+      "main": [
+        [
+          {
+            "node": "Necesita Refresco de APIs?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Necesita Refresco de APIs?": {
+      "main": [
+        [
+          {
+            "node": "Consultar Clima Real (OpenWeatherMap)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Consultar Vuelos Arribos Real (AviationStack)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Consultar Vuelos Salidas Real (AviationStack)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Usar Datos en Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Vuelos Salidas Real (AviationStack)": {
+      "main": [
+        [
+          {
+            "node": "Normalizar Datos de APIs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar Datos de APIs": {
+      "main": [
+        [
+          {
+            "node": "Desarmar Vuelos Activos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Evaluar Riesgo Meteorologico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Usar Datos en Cache": {
+      "main": [
+        [
+          {
+            "node": "Desarmar Vuelos Activos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Evaluar Riesgo Meteorologico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Desarmar Vuelos Activos": {
+      "main": [
+        [
+          {
+            "node": "Switch Triage por Estado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Triage por Estado": {
+      "main": [
+        [
+          {
+            "node": "Vuelos en Aproximacion (Sin Accion Automatica)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Calcular Nuevo ETD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluar Riesgo Meteorologico": {
+      "main": [
+        [
+          {
+            "node": "Switch Nivel de Riesgo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Nivel de Riesgo": {
+      "main": [
+        [
+          {
+            "node": "Notificar Cierre a Operaciones de Pista",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Crear Ticket de Mantenimiento",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Construir HTML del Reporte",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Construir HTML del Reporte",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sin Accion Requerida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construir HTML del Reporte": {
+      "main": [
+        [
+          {
+            "node": "Generar PDF (Gotenberg)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar PDF (Gotenberg)": {
+      "main": [
+        [
+          {
+            "node": "Nombrar Archivo PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nombrar Archivo PDF": {
+      "main": [
+        [
+          {
+            "node": "Enviar Alerta a Terminal",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Enviar Reporte PDF por Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer NOTAM con IA": {
+      "main": [
+        [
+          {
+            "node": "Combinar NOTAM y Evaluar Colision Climatica",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combinar NOTAM y Evaluar Colision Climatica": {
+      "main": [
+        [
+          {
+            "node": "Motor de Decision - Triage Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Motor de Decision - Triage Final": {
+      "main": [
+        [
+          {
+            "node": "Alertar Emergencia - Desvio a Alterno",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Vuelo Sin Riesgo Detectado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {
+    "Ingesta de Reporte (Manual Trigger)": [
+      {
+        "json": {
+          "reporte_meteorologico": {
+            "estacion": "SAEZ",
+            "nombre_estacion": "Aeropuerto Internacional Ministro Pistarini (Ezeiza)",
+            "hora_reporte_utc": "2026-08-30T21:00:00Z",
+            "metar_crudo": "SAEZ 302100Z 29038G52KT 3000 +TSRA SCT008 FEW015CB BKN025 21/19 Q0998 WS ALL RWY RMK TORMENTA ELECTRICA EN AREA TERMINAL",
+            "viento": {
+              "direccion_grados": 290,
+              "velocidad_kt": 38,
+              "rafaga_kt": 52
+            },
+            "visibilidad_m": 3000,
+            "fenomenos": [
+              "+TSRA",
+              "WS_ALL_RWY"
+            ],
+            "actividad_electrica": true,
+            "windshear_reportado": true,
+            "nubes": [
+              {
+                "tipo": "SCT",
+                "altura_ft": 800,
+                "cb": false
+              },
+              {
+                "tipo": "FEW",
+                "altura_ft": 1500,
+                "cb": true
+              },
+              {
+                "tipo": "BKN",
+                "altura_ft": 2500,
+                "cb": false
+              }
+            ],
+            "temperatura_c": 21,
+            "punto_rocio_c": 19,
+            "qnh_hpa": 998
+          },
+          "vuelos_programados": [
+            {
+              "vuelo": "AR1130",
+              "aerolinea": "Aerolineas Argentinas",
+              "aeronave": "Airbus A330-200",
+              "matricula": "LV-FNJ",
+              "tipo_operacion": "despegue",
+              "origen": "SAEZ",
+              "destino": "LEMD",
+              "hora_programada_utc": "2026-08-30T21:15:00Z",
+              "posicion_rampa": "R14",
+              "estado": "embarcando"
+            },
+            {
+              "vuelo": "AR1303",
+              "aerolinea": "Aerolineas Argentinas",
+              "aeronave": "Boeing 737-800",
+              "matricula": "LV-GVB",
+              "tipo_operacion": "aterrizaje",
+              "origen": "SAME",
+              "destino": "SAEZ",
+              "hora_programada_utc": "2026-08-30T21:25:00Z",
+              "posicion_rampa": "R08",
+              "estado": "en_ruta"
+            },
+            {
+              "vuelo": "JA3045",
+              "aerolinea": "JetSmart",
+              "aeronave": "Airbus A320neo",
+              "matricula": "LV-KTZ",
+              "tipo_operacion": "despegue",
+              "origen": "SAEZ",
+              "destino": "SCEL",
+              "hora_programada_utc": "2026-08-30T21:35:00Z",
+              "posicion_rampa": "R21",
+              "estado": "abordaje_pendiente"
+            },
+            {
+              "vuelo": "FO2210",
+              "aerolinea": "Flybondi",
+              "aeronave": "Boeing 737-800",
+              "matricula": "LV-HQS",
+              "tipo_operacion": "aterrizaje",
+              "origen": "SAWH",
+              "destino": "SAEZ",
+              "hora_programada_utc": "2026-08-30T21:44:00Z",
+              "posicion_rampa": "R17",
+              "estado": "en_ruta"
+            }
+          ],
+          "notam_crudo": "A0142/26 NOTAMN Q)SAEZ/QMRLC/IV/NBO/A/000/999/3449S05832W005 A)SAEZ B)2608302100 C)2608302300EST E)RWY 11/29 CLSD DUE SEVERE TS AND WINDSHEAR ALL RWY",
+          "tormenta_activa": {
+            "latitud": -34.7022,
+            "longitud": -58.6358,
+            "radio_impacto_km": 70
+          },
+          "vuelos_en_ruta": [
+            {
+              "id_vuelo": "AR1401",
+              "destino": "SAEZ",
+              "altitud_ft": 9000,
+              "latitud": -34.4522,
+              "longitud": -58.6858
+            },
+            {
+              "id_vuelo": "LA8032",
+              "destino": "SCEL",
+              "altitud_ft": 36000,
+              "latitud": -32.1022,
+              "longitud": -56.4358
+            }
+          ]
+        }
+      },
+      {
+        "json": {
+          "reporte_meteorologico": {
+            "estacion": "SACO",
+            "nombre_estacion": "Aeropuerto Internacional Ingeniero Ambrosio Taravella (Cordoba)",
+            "hora_reporte_utc": "2026-08-30T10:00:00Z",
+            "metar_crudo": "SACO 301000Z 09008KT 1200 BR NSC 09/08 Q1018",
+            "viento": {
+              "direccion_grados": 90,
+              "velocidad_kt": 8,
+              "rafaga_kt": 12
+            },
+            "visibilidad_m": 1200,
+            "fenomenos": [
+              "BR"
+            ],
+            "actividad_electrica": false,
+            "windshear_reportado": false,
+            "nubes": [],
+            "temperatura_c": 9,
+            "punto_rocio_c": 8,
+            "qnh_hpa": 1018
+          },
+          "vuelos_programados": [
+            {
+              "vuelo": "AR2456",
+              "aerolinea": "Aerolineas Argentinas",
+              "aeronave": "Embraer E190",
+              "matricula": "LV-CSF",
+              "tipo_operacion": "aterrizaje",
+              "origen": "SAEZ",
+              "destino": "SACO",
+              "hora_programada_utc": "2026-08-30T10:20:00Z",
+              "posicion_rampa": "P03",
+              "estado": "en_ruta"
+            },
+            {
+              "vuelo": "FO1188",
+              "aerolinea": "Flybondi",
+              "aeronave": "Boeing 737-800",
+              "matricula": "LV-HRT",
+              "tipo_operacion": "despegue",
+              "origen": "SACO",
+              "destino": "SAEZ",
+              "hora_programada_utc": "2026-08-30T10:35:00Z",
+              "posicion_rampa": "P07",
+              "estado": "embarcando"
+            }
+          ],
+          "notam_crudo": "A0089/26 NOTAMN Q)SACO/QMRLC/IV/NBO/A/000/999/3119S06412W005 A)SACO B)2608301000 C)2608301200EST E)RWY 18/36 CLSD DUE FOG LOW VIS BELOW MINIMA",
+          "tormenta_activa": {
+            "latitud": -31.2436,
+            "longitud": -64.148,
+            "radio_impacto_km": 55
+          },
+          "vuelos_en_ruta": [
+            {
+              "id_vuelo": "AR2601",
+              "destino": "SACO",
+              "altitud_ft": 7000,
+              "latitud": -31.0436,
+              "longitud": -64.048
+            },
+            {
+              "id_vuelo": "JA1975",
+              "destino": "SAEZ",
+              "altitud_ft": 34000,
+              "latitud": -28.8436,
+              "longitud": -66.148
+            }
+          ]
+        }
+      },
+      {
+        "json": {
+          "reporte_meteorologico": {
+            "estacion": "SAME",
+            "nombre_estacion": "Aeropuerto Internacional El Plumerillo (Mendoza)",
+            "hora_reporte_utc": "2026-08-30T14:00:00Z",
+            "metar_crudo": "SAME 301400Z 27032KT 9999 FEW040 18/02 Q1010",
+            "viento": {
+              "direccion_grados": 270,
+              "velocidad_kt": 32,
+              "rafaga_kt": 40
+            },
+            "visibilidad_m": 9999,
+            "fenomenos": [],
+            "actividad_electrica": false,
+            "windshear_reportado": false,
+            "nubes": [
+              {
+                "tipo": "FEW",
+                "altura_ft": 4000,
+                "cb": false
+              }
+            ],
+            "temperatura_c": 18,
+            "punto_rocio_c": 2,
+            "qnh_hpa": 1010
+          },
+          "vuelos_programados": [
+            {
+              "vuelo": "AR1755",
+              "aerolinea": "Aerolineas Argentinas",
+              "aeronave": "Boeing 737 MAX 8",
+              "matricula": "LV-KTX",
+              "tipo_operacion": "aterrizaje",
+              "origen": "SAEZ",
+              "destino": "SAME",
+              "hora_programada_utc": "2026-08-30T14:25:00Z",
+              "posicion_rampa": "P11",
+              "estado": "en_ruta"
+            },
+            {
+              "vuelo": "JA3311",
+              "aerolinea": "JetSmart",
+              "aeronave": "Airbus A320",
+              "matricula": "LV-JSM",
+              "tipo_operacion": "despegue",
+              "origen": "SAME",
+              "destino": "SCEL",
+              "hora_programada_utc": "2026-08-30T14:40:00Z",
+              "posicion_rampa": "P05",
+              "estado": "abordaje_pendiente"
+            }
+          ],
+          "notam_crudo": "A0021/26 NOTAMN Q)SAME/QOLAS/IV/NBO/A/000/999/3250S06848W005 A)SAME B)2608301300 C)2608311300 E)TWY B LGT U/S DUE MAINT",
+          "tormenta_activa": {
+            "latitud": -29.2317,
+            "longitud": -71.9929,
+            "radio_impacto_km": 40
+          },
+          "vuelos_en_ruta": [
+            {
+              "id_vuelo": "AR1760",
+              "destino": "SAME",
+              "altitud_ft": 8000,
+              "latitud": -32.7117,
+              "longitud": -68.8929
+            },
+            {
+              "id_vuelo": "JA3315",
+              "destino": "SASA",
+              "altitud_ft": 34000,
+              "latitud": -32.6317,
+              "longitud": -68.6429
+            }
+          ]
+        }
+      },
+      {
+        "json": {
+          "reporte_meteorologico": {
+            "estacion": "SABE",
+            "nombre_estacion": "Aeroparque Jorge Newbery (Buenos Aires)",
+            "hora_reporte_utc": "2026-08-30T18:00:00Z",
+            "metar_crudo": "SABE 301800Z 12006KT 9999 FEW025 22/14 Q1015",
+            "viento": {
+              "direccion_grados": 120,
+              "velocidad_kt": 6,
+              "rafaga_kt": 9
+            },
+            "visibilidad_m": 9999,
+            "fenomenos": [],
+            "actividad_electrica": false,
+            "windshear_reportado": false,
+            "nubes": [
+              {
+                "tipo": "FEW",
+                "altura_ft": 2500,
+                "cb": false
+              }
+            ],
+            "temperatura_c": 22,
+            "punto_rocio_c": 14,
+            "qnh_hpa": 1015
+          },
+          "vuelos_programados": [
+            {
+              "vuelo": "AR1289",
+              "aerolinea": "Aerolineas Argentinas",
+              "aeronave": "Boeing 737-800",
+              "matricula": "LV-GVR",
+              "tipo_operacion": "despegue",
+              "origen": "SABE",
+              "destino": "SAME",
+              "hora_programada_utc": "2026-08-30T18:15:00Z",
+              "posicion_rampa": "A02",
+              "estado": "embarcando"
+            },
+            {
+              "vuelo": "FO2078",
+              "aerolinea": "Flybondi",
+              "aeronave": "Boeing 737-800",
+              "matricula": "LV-HQF",
+              "tipo_operacion": "aterrizaje",
+              "origen": "SACO",
+              "destino": "SABE",
+              "hora_programada_utc": "2026-08-30T18:30:00Z",
+              "posicion_rampa": "A05",
+              "estado": "en_ruta"
+            }
+          ],
+          "notam_crudo": "A0067/26 NOTAMN Q)SABE/QGPAS/IV/NBO/A/000/999/3434S05825W005 A)SABE B)2608301700 C)2608302300 E)GPS RWY13 APCH NOT AVBL DUE MAINT",
+          "tormenta_activa": {
+            "latitud": -31.0592,
+            "longitud": -55.1156,
+            "radio_impacto_km": 35
+          },
+          "vuelos_en_ruta": [
+            {
+              "id_vuelo": "AR1293",
+              "destino": "SABE",
+              "altitud_ft": 6500,
+              "latitud": -34.4792,
+              "longitud": -58.5256
+            },
+            {
+              "id_vuelo": "FO2082",
+              "destino": "SACO",
+              "altitud_ft": 32000,
+              "latitud": -34.3992,
+              "longitud": -58.2856
+            }
+          ]
+        }
+      },
+      {
+        "json": {
+          "reporte_meteorologico": {
+            "estacion": "SAAR",
+            "nombre_estacion": "Aeropuerto Internacional Rosario Islas Malvinas",
+            "hora_reporte_utc": "2026-08-30T08:00:00Z",
+            "metar_crudo": "SAAR 300800Z 18025G33KT 4000 TSRA FEW010 SCT020CB BKN035 24/20 Q1005 WS RWY07",
+            "viento": {
+              "direccion_grados": 180,
+              "velocidad_kt": 25,
+              "rafaga_kt": 33
+            },
+            "visibilidad_m": 4000,
+            "fenomenos": [
+              "TSRA"
+            ],
+            "actividad_electrica": true,
+            "windshear_reportado": true,
+            "nubes": [
+              {
+                "tipo": "SCT",
+                "altura_ft": 2000,
+                "cb": true
+              },
+              {
+                "tipo": "BKN",
+                "altura_ft": 3500,
+                "cb": false
+              }
+            ],
+            "temperatura_c": 24,
+            "punto_rocio_c": 20,
+            "qnh_hpa": 1005
+          },
+          "vuelos_programados": [
+            {
+              "vuelo": "AR2201",
+              "aerolinea": "Aerolineas Argentinas",
+              "aeronave": "Boeing 737-800",
+              "matricula": "LV-FUH",
+              "tipo_operacion": "despegue",
+              "origen": "SAAR",
+              "destino": "SAEZ",
+              "hora_programada_utc": "2026-08-30T08:18:00Z",
+              "posicion_rampa": "R03",
+              "estado": "embarcando"
+            },
+            {
+              "vuelo": "JA1187",
+              "aerolinea": "JetSmart",
+              "aeronave": "Airbus A320",
+              "matricula": "LV-JSN",
+              "tipo_operacion": "aterrizaje",
+              "origen": "SAME",
+              "destino": "SAAR",
+              "hora_programada_utc": "2026-08-30T08:33:00Z",
+              "posicion_rampa": "R05",
+              "estado": "en_ruta"
+            }
+          ],
+          "notam_crudo": "A0176/26 NOTAMN Q)SAAR/QMRLC/IV/NBO/A/000/999/3254S06047W005 A)SAAR B)2608300800 C)2608301000EST E)RWY 07/25 CLSD DUE TS AND WINDSHEAR RWY07",
+          "tormenta_activa": {
+            "latitud": -33.0036,
+            "longitud": -60.695,
+            "radio_impacto_km": 65
+          },
+          "vuelos_en_ruta": [
+            {
+              "id_vuelo": "AR2205",
+              "destino": "SAAR",
+              "altitud_ft": 8500,
+              "latitud": -33.2236,
+              "longitud": -60.515
+            },
+            {
+              "id_vuelo": "FO4410",
+              "destino": "SABE",
+              "altitud_ft": 35000,
+              "latitud": -30.9036,
+              "longitud": -63.195
+            }
+          ]
+        }
+      },
+      {
+        "json": {
+          "reporte_meteorologico": {
+            "estacion": "SAWH",
+            "nombre_estacion": "Aeropuerto Internacional Teniente Luis Candelaria (Bariloche)",
+            "hora_reporte_utc": "2026-08-30T05:00:00Z",
+            "metar_crudo": "SAWH 300500Z 27030G50KT 5000 TSRA BKN030CB 12/07 Q1002",
+            "viento": {
+              "direccion_grados": 270,
+              "velocidad_kt": 30,
+              "rafaga_kt": 50
+            },
+            "visibilidad_m": 5000,
+            "fenomenos": [
+              "TSRA"
+            ],
+            "actividad_electrica": true,
+            "windshear_reportado": false,
+            "nubes": [
+              {
+                "tipo": "BKN",
+                "altura_ft": 3000,
+                "cb": true
+              }
+            ],
+            "temperatura_c": 12,
+            "punto_rocio_c": 7,
+            "qnh_hpa": 1002
+          },
+          "vuelos_programados": [
+            {
+              "vuelo": "FO3315",
+              "aerolinea": "Flybondi",
+              "aeronave": "Boeing 737-800",
+              "matricula": "LV-HTQ",
+              "tipo_operacion": "despegue",
+              "origen": "SAWH",
+              "destino": "SABE",
+              "hora_programada_utc": "2026-08-30T05:20:00Z",
+              "posicion_rampa": "B02",
+              "estado": "abordaje_pendiente"
+            },
+            {
+              "vuelo": "AR1876",
+              "aerolinea": "Aerolineas Argentinas",
+              "aeronave": "Embraer E190",
+              "matricula": "LV-CSK",
+              "tipo_operacion": "aterrizaje",
+              "origen": "SAEZ",
+              "destino": "SAWH",
+              "hora_programada_utc": "2026-08-30T05:38:00Z",
+              "posicion_rampa": "B04",
+              "estado": "en_ruta"
+            }
+          ],
+          "notam_crudo": "A0055/26 NOTAMN Q)SAWH/QMRLC/IV/NBO/A/000/999/4109S07109W005 A)SAWH B)2608300500 C)2608300700EST E)RWY 11/29 CLSD DUE TS AND STRONG GUST",
+          "tormenta_activa": {
+            "latitud": -41.0612,
+            "longitud": -71.2375,
+            "radio_impacto_km": 75
+          },
+          "vuelos_en_ruta": [
+            {
+              "id_vuelo": "AR1880",
+              "destino": "SAWH",
+              "altitud_ft": 10000,
+              "latitud": -40.8212,
+              "longitud": -71.3875
+            },
+            {
+              "id_vuelo": "FO3320",
+              "destino": "SABE",
+              "altitud_ft": 37000,
+              "latitud": -43.3612,
+              "longitud": -68.6375
+            }
+          ]
+        }
+      },
+      {
+        "json": {
+          "reporte_meteorologico": {
+            "estacion": "SASA",
+            "nombre_estacion": "Aeropuerto Internacional Martin Miguel de Guemes (Salta)",
+            "hora_reporte_utc": "2026-08-30T17:00:00Z",
+            "metar_crudo": "SASA 301700Z 09010KT 6000 TSRA FEW020 SCT030CB 26/21 Q1012",
+            "viento": {
+              "direccion_grados": 90,
+              "velocidad_kt": 10,
+              "rafaga_kt": 15
+            },
+            "visibilidad_m": 6000,
+            "fenomenos": [
+              "TSRA"
+            ],
+            "actividad_electrica": true,
+            "windshear_reportado": false,
+            "nubes": [
+              {
+                "tipo": "SCT",
+                "altura_ft": 3000,
+                "cb": true
+              }
+            ],
+            "temperatura_c": 26,
+            "punto_rocio_c": 21,
+            "qnh_hpa": 1012
+          },
+          "vuelos_programados": [
+            {
+              "vuelo": "AR1567",
+              "aerolinea": "Aerolineas Argentinas",
+              "aeronave": "Boeing 737 MAX 8",
+              "matricula": "LV-KTY",
+              "tipo_operacion": "aterrizaje",
+              "origen": "SAEZ",
+              "destino": "SASA",
+              "hora_programada_utc": "2026-08-30T17:22:00Z",
+              "posicion_rampa": "P02",
+              "estado": "en_ruta"
+            },
+            {
+              "vuelo": "JA2290",
+              "aerolinea": "JetSmart",
+              "aeronave": "Airbus A320neo",
+              "matricula": "LV-KTA",
+              "tipo_operacion": "despegue",
+              "origen": "SASA",
+              "destino": "SABE",
+              "hora_programada_utc": "2026-08-30T17:40:00Z",
+              "posicion_rampa": "P04",
+              "estado": "embarcando"
+            }
+          ],
+          "notam_crudo": "A0201/26 NOTAMN Q)SASA/QMRLC/IV/NBO/A/000/999/2450S06529W005 A)SASA B)2608301700 C)2608301900EST E)RWY 02/20 CLSD DUE TS IN VICINITY",
+          "tormenta_activa": {
+            "latitud": -24.9525,
+            "longitud": -65.5561,
+            "radio_impacto_km": 60
+          },
+          "vuelos_en_ruta": [
+            {
+              "id_vuelo": "AR1570",
+              "destino": "SASA",
+              "altitud_ft": 9500,
+              "latitud": -25.1525,
+              "longitud": -65.6761
+            },
+            {
+              "id_vuelo": "JA2295",
+              "destino": "SABE",
+              "altitud_ft": 36000,
+              "latitud": -22.2525,
+              "longitud": -63.4561
+            }
+          ]
+        }
+      },
+      {
+        "json": {
+          "reporte_meteorologico": {
+            "estacion": "SAVC",
+            "nombre_estacion": "Aeropuerto General Enrique Mosconi (Comodoro Rivadavia)",
+            "hora_reporte_utc": "2026-08-30T11:00:00Z",
+            "metar_crudo": "SAVC 301100Z 25025G48KT 9999 FEW030 15/05 Q1008",
+            "viento": {
+              "direccion_grados": 250,
+              "velocidad_kt": 25,
+              "rafaga_kt": 48
+            },
+            "visibilidad_m": 9999,
+            "fenomenos": [],
+            "actividad_electrica": false,
+            "windshear_reportado": false,
+            "nubes": [
+              {
+                "tipo": "FEW",
+                "altura_ft": 3000,
+                "cb": false
+              }
+            ],
+            "temperatura_c": 15,
+            "punto_rocio_c": 5,
+            "qnh_hpa": 1008
+          },
+          "vuelos_programados": [
+            {
+              "vuelo": "FO1904",
+              "aerolinea": "Flybondi",
+              "aeronave": "Boeing 737-800",
+              "matricula": "LV-HRW",
+              "tipo_operacion": "despegue",
+              "origen": "SAVC",
+              "destino": "SAEZ",
+              "hora_programada_utc": "2026-08-30T11:16:00Z",
+              "posicion_rampa": "C01",
+              "estado": "embarcando"
+            },
+            {
+              "vuelo": "AR2033",
+              "aerolinea": "Aerolineas Argentinas",
+              "aeronave": "ATR 72-600",
+              "matricula": "LV-CST",
+              "tipo_operacion": "aterrizaje",
+              "origen": "SAWH",
+              "destino": "SAVC",
+              "hora_programada_utc": "2026-08-30T11:34:00Z",
+              "posicion_rampa": "C03",
+              "estado": "en_ruta"
+            }
+          ],
+          "notam_crudo": "A0034/26 NOTAMN Q)SAVC/QMRLC/IV/NBO/A/000/999/4547S06728W005 A)SAVC B)2608301100 C)2608301300EST E)RWY 07/25 CLSD DUE STRONG CROSSWIND EXCEEDING LIMITS",
+          "tormenta_activa": {
+            "latitud": -45.6853,
+            "longitud": -67.3855,
+            "radio_impacto_km": 50
+          },
+          "vuelos_en_ruta": [
+            {
+              "id_vuelo": "FO1910",
+              "destino": "SAVC",
+              "altitud_ft": 6500,
+              "latitud": -45.4653,
+              "longitud": -67.2455
+            },
+            {
+              "id_vuelo": "AR2040",
+              "destino": "SAWH",
+              "altitud_ft": 33000,
+              "latitud": -48.1853,
+              "longitud": -69.5855
+            }
+          ]
+        }
+      },
+      {
+        "json": {
+          "reporte_meteorologico": {
+            "estacion": "SAZN",
+            "nombre_estacion": "Aeropuerto Presidente Peron (Neuquen)",
+            "hora_reporte_utc": "2026-08-30T13:00:00Z",
+            "metar_crudo": "SAZN 301300Z 25031G38KT 9999 SCT050 20/03 Q1011",
+            "viento": {
+              "direccion_grados": 250,
+              "velocidad_kt": 31,
+              "rafaga_kt": 38
+            },
+            "visibilidad_m": 9999,
+            "fenomenos": [],
+            "actividad_electrica": false,
+            "windshear_reportado": false,
+            "nubes": [
+              {
+                "tipo": "SCT",
+                "altura_ft": 5000,
+                "cb": false
+              }
+            ],
+            "temperatura_c": 20,
+            "punto_rocio_c": 3,
+            "qnh_hpa": 1011
+          },
+          "vuelos_programados": [
+            {
+              "vuelo": "AR1654",
+              "aerolinea": "Aerolineas Argentinas",
+              "aeronave": "Boeing 737-800",
+              "matricula": "LV-GVX",
+              "tipo_operacion": "despegue",
+              "origen": "SAZN",
+              "destino": "SAEZ",
+              "hora_programada_utc": "2026-08-30T13:19:00Z",
+              "posicion_rampa": "N01",
+              "estado": "abordaje_pendiente"
+            },
+            {
+              "vuelo": "JA3402",
+              "aerolinea": "JetSmart",
+              "aeronave": "Airbus A320",
+              "matricula": "LV-JSP",
+              "tipo_operacion": "aterrizaje",
+              "origen": "SABE",
+              "destino": "SAZN",
+              "hora_programada_utc": "2026-08-30T13:37:00Z",
+              "posicion_rampa": "N02",
+              "estado": "en_ruta"
+            }
+          ],
+          "notam_crudo": "A0013/26 NOTAMN Q)SAZN/QOBCE/IV/NBO/A/000/999/3857S06809W005 A)SAZN B)2608301200 C)PERM E)OBST CRANE ERECTED 500M N THR RWY01 HGT 45M AGL",
+          "tormenta_activa": {
+            "latitud": -42.349,
+            "longitud": -65.1557,
+            "radio_impacto_km": 40
+          },
+          "vuelos_en_ruta": [
+            {
+              "id_vuelo": "AR1658",
+              "destino": "SAZN",
+              "altitud_ft": 7500,
+              "latitud": -38.849,
+              "longitud": -68.0157
+            },
+            {
+              "id_vuelo": "JA3406",
+              "destino": "SAWH",
+              "altitud_ft": 33000,
+              "latitud": -39.129,
+              "longitud": -68.2757
+            }
+          ]
+        }
+      },
+      {
+        "json": {
+          "reporte_meteorologico": {
+            "estacion": "SARI",
+            "nombre_estacion": "Aeropuerto Internacional Cataratas del Iguazu",
+            "hora_reporte_utc": "2026-08-30T16:00:00Z",
+            "metar_crudo": "SARI 301600Z 09005KT 9999 FEW015 28/22 Q1014",
+            "viento": {
+              "direccion_grados": 90,
+              "velocidad_kt": 5,
+              "rafaga_kt": 8
+            },
+            "visibilidad_m": 9999,
+            "fenomenos": [],
+            "actividad_electrica": false,
+            "windshear_reportado": false,
+            "nubes": [
+              {
+                "tipo": "FEW",
+                "altura_ft": 1500,
+                "cb": false
+              }
+            ],
+            "temperatura_c": 28,
+            "punto_rocio_c": 22,
+            "qnh_hpa": 1014
+          },
+          "vuelos_programados": [
+            {
+              "vuelo": "AR1345",
+              "aerolinea": "Aerolineas Argentinas",
+              "aeronave": "Embraer E190",
+              "matricula": "LV-CSQ",
+              "tipo_operacion": "aterrizaje",
+              "origen": "SAEZ",
+              "destino": "SARI",
+              "hora_programada_utc": "2026-08-30T16:24:00Z",
+              "posicion_rampa": "I01",
+              "estado": "en_ruta"
+            },
+            {
+              "vuelo": "FO1720",
+              "aerolinea": "Flybondi",
+              "aeronave": "Boeing 737-800",
+              "matricula": "LV-HSD",
+              "tipo_operacion": "despegue",
+              "origen": "SARI",
+              "destino": "SABE",
+              "hora_programada_utc": "2026-08-30T16:41:00Z",
+              "posicion_rampa": "I02",
+              "estado": "embarcando"
+            }
+          ],
+          "notam_crudo": "A0009/26 NOTAMN Q)SARI/QMDAS/IV/NBO/A/000/999/2544S05428W005 A)SARI B)2608301500 C)2608302200 E)RWY SHLDR WORK IN PROGRESS SOUTH SIDE",
+          "tormenta_activa": {
+            "latitud": -29.0373,
+            "longitud": -58.0734,
+            "radio_impacto_km": 35
+          },
+          "vuelos_en_ruta": [
+            {
+              "id_vuelo": "AR1349",
+              "destino": "SARI",
+              "altitud_ft": 7000,
+              "latitud": -25.6273,
+              "longitud": -54.5634
+            },
+            {
+              "id_vuelo": "FO1724",
+              "destino": "SABE",
+              "altitud_ft": 33000,
+              "latitud": -25.5673,
+              "longitud": -54.3334
+            }
+          ]
+        }
+      },
+      {
+        "json": {
+          "reporte_meteorologico": {
+            "estacion": "KJFK",
+            "nombre_estacion": "John F. Kennedy International Airport (Nueva York)",
+            "hora_reporte_utc": "2026-08-30T22:00:00Z",
+            "metar_crudo": "KJFK 302200Z 33035G55KT 0800 +SN BLSN VV002 M05/M08 A2985",
+            "viento": {
+              "direccion_grados": 330,
+              "velocidad_kt": 35,
+              "rafaga_kt": 55
+            },
+            "visibilidad_m": 800,
+            "fenomenos": [
+              "+SN",
+              "BLSN"
+            ],
+            "actividad_electrica": false,
+            "windshear_reportado": true,
+            "nubes": [],
+            "temperatura_c": -5,
+            "punto_rocio_c": -8,
+            "qnh_hpa": 1011
+          },
+          "vuelos_programados": [
+            {
+              "vuelo": "AA1287",
+              "aerolinea": "American Airlines",
+              "aeronave": "Boeing 787-9",
+              "matricula": "N835AN",
+              "tipo_operacion": "despegue",
+              "origen": "KJFK",
+              "destino": "EGLL",
+              "hora_programada_utc": "2026-08-30T22:20:00Z",
+              "posicion_rampa": "T8-42",
+              "estado": "embarcando"
+            },
+            {
+              "vuelo": "BA178",
+              "aerolinea": "British Airways",
+              "aeronave": "Airbus A350-1000",
+              "matricula": "G-XWBC",
+              "tipo_operacion": "aterrizaje",
+              "origen": "EGLL",
+              "destino": "KJFK",
+              "hora_programada_utc": "2026-08-30T22:38:00Z",
+              "posicion_rampa": "T7-11",
+              "estado": "en_ruta"
+            }
+          ],
+          "notam_crudo": "A1204/26 NOTAMN Q)KJFK/QMRLC/IV/NBO/A/000/999/4038N07347W005 A)KJFK B)2608302200 C)2608302359EST E)RWY 04L/22R CLSD DUE SNOW AND BLOWING SNOW LOW VIS",
+          "tormenta_activa": {
+            "latitud": 40.7413,
+            "longitud": -73.8681,
+            "radio_impacto_km": 65
+          },
+          "vuelos_en_ruta": [
+            {
+              "id_vuelo": "AA1290",
+              "destino": "KJFK",
+              "altitud_ft": 8000,
+              "latitud": 40.9713,
+              "longitud": -74.0281
+            },
+            {
+              "id_vuelo": "BA179",
+              "destino": "EGLL",
+              "altitud_ft": 38000,
+              "latitud": 43.3413,
+              "longitud": -71.4681
+            }
+          ]
+        }
+      },
+      {
+        "json": {
+          "reporte_meteorologico": {
+            "estacion": "EGLL",
+            "nombre_estacion": "London Heathrow Airport",
+            "hora_reporte_utc": "2026-08-30T06:00:00Z",
+            "metar_crudo": "EGLL 300600Z 02004KT 0400 FG NSC 04/04 Q1021",
+            "viento": {
+              "direccion_grados": 20,
+              "velocidad_kt": 4,
+              "rafaga_kt": 6
+            },
+            "visibilidad_m": 400,
+            "fenomenos": [
+              "FG"
+            ],
+            "actividad_electrica": false,
+            "windshear_reportado": false,
+            "nubes": [],
+            "temperatura_c": 4,
+            "punto_rocio_c": 4,
+            "qnh_hpa": 1021
+          },
+          "vuelos_programados": [
+            {
+              "vuelo": "BA286",
+              "aerolinea": "British Airways",
+              "aeronave": "Boeing 777-300ER",
+              "matricula": "G-STBD",
+              "tipo_operacion": "aterrizaje",
+              "origen": "KLAX",
+              "destino": "EGLL",
+              "hora_programada_utc": "2026-08-30T06:24:00Z",
+              "posicion_rampa": "T5-A15",
+              "estado": "en_ruta"
+            },
+            {
+              "vuelo": "IB3166",
+              "aerolinea": "Iberia",
+              "aeronave": "Airbus A320",
+              "matricula": "EC-NAY",
+              "tipo_operacion": "despegue",
+              "origen": "EGLL",
+              "destino": "LEMD",
+              "hora_programada_utc": "2026-08-30T06:39:00Z",
+              "posicion_rampa": "T5-B22",
+              "estado": "abordaje_pendiente"
+            }
+          ],
+          "notam_crudo": "A0987/26 NOTAMN Q)EGLL/QMRLC/IV/NBO/A/000/999/5128N00027W005 A)EGLL B)2608300600 C)2608300800EST E)RWY 09L/27R CLSD DUE DENSE FOG LOW VIS OPS",
+          "tormenta_activa": {
+            "latitud": 51.54,
+            "longitud": -0.3943,
+            "radio_impacto_km": 50
+          },
+          "vuelos_en_ruta": [
+            {
+              "id_vuelo": "BA287",
+              "destino": "EGLL",
+              "altitud_ft": 7500,
+              "latitud": 51.72,
+              "longitud": -0.2743
+            },
+            {
+              "id_vuelo": "IB3168",
+              "destino": "LEMD",
+              "altitud_ft": 35000,
+              "latitud": 49.34,
+              "longitud": -2.9943
+            }
+          ]
+        }
+      },
+      {
+        "json": {
+          "reporte_meteorologico": {
+            "estacion": "RJTT",
+            "nombre_estacion": "Tokyo Haneda Airport",
+            "hora_reporte_utc": "2026-08-30T09:00:00Z",
+            "metar_crudo": "RJTT 300900Z 14045G65KT 2000 +TSRA SCT010 BKN020CB OVC030 27/25 Q0985 WS ALL RWY",
+            "viento": {
+              "direccion_grados": 140,
+              "velocidad_kt": 45,
+              "rafaga_kt": 65
+            },
+            "visibilidad_m": 2000,
+            "fenomenos": [
+              "+TSRA"
+            ],
+            "actividad_electrica": true,
+            "windshear_reportado": true,
+            "nubes": [
+              {
+                "tipo": "BKN",
+                "altura_ft": 2000,
+                "cb": true
+              },
+              {
+                "tipo": "OVC",
+                "altura_ft": 3000,
+                "cb": false
+              }
+            ],
+            "temperatura_c": 27,
+            "punto_rocio_c": 25,
+            "qnh_hpa": 985
+          },
+          "vuelos_programados": [
+            {
+              "vuelo": "NH105",
+              "aerolinea": "All Nippon Airways",
+              "aeronave": "Boeing 787-9",
+              "matricula": "JA879A",
+              "tipo_operacion": "despegue",
+              "origen": "RJTT",
+              "destino": "RJAA",
+              "hora_programada_utc": "2026-08-30T09:18:00Z",
+              "posicion_rampa": "T3-56",
+              "estado": "embarcando"
+            },
+            {
+              "vuelo": "JL006",
+              "aerolinea": "Japan Airlines",
+              "aeronave": "Boeing 777-300ER",
+              "matricula": "JA733J",
+              "tipo_operacion": "aterrizaje",
+              "origen": "KLAX",
+              "destino": "RJTT",
+              "hora_programada_utc": "2026-08-30T09:36:00Z",
+              "posicion_rampa": "T2-14",
+              "estado": "en_ruta"
+            }
+          ],
+          "notam_crudo": "A0678/26 NOTAMN Q)RJTT/QMRLC/IV/NBO/A/000/999/3533N13947E005 A)RJTT B)2608300900 C)2608301100EST E)RWY 34L/16R CLSD DUE TYPHOON TS AND WINDSHEAR ALL RWY",
+          "tormenta_activa": {
+            "latitud": 35.6594,
+            "longitud": 139.6798,
+            "radio_impacto_km": 80
+          },
+          "vuelos_en_ruta": [
+            {
+              "id_vuelo": "NH106",
+              "destino": "RJTT",
+              "altitud_ft": 9500,
+              "latitud": 35.9194,
+              "longitud": 139.4998
+            },
+            {
+              "id_vuelo": "JL007",
+              "destino": "RJAA",
+              "altitud_ft": 39000,
+              "latitud": 32.9594,
+              "longitud": 141.9798
+            }
+          ]
+        }
+      },
+      {
+        "json": {
+          "reporte_meteorologico": {
+            "estacion": "OMDB",
+            "nombre_estacion": "Dubai International Airport",
+            "hora_reporte_utc": "2026-08-30T13:00:00Z",
+            "metar_crudo": "OMDB 301300Z 32020G28KT 0900 DS NSC 38/10 Q1002",
+            "viento": {
+              "direccion_grados": 320,
+              "velocidad_kt": 20,
+              "rafaga_kt": 28
+            },
+            "visibilidad_m": 900,
+            "fenomenos": [
+              "DS"
+            ],
+            "actividad_electrica": false,
+            "windshear_reportado": false,
+            "nubes": [],
+            "temperatura_c": 38,
+            "punto_rocio_c": 10,
+            "qnh_hpa": 1002
+          },
+          "vuelos_programados": [
+            {
+              "vuelo": "EK073",
+              "aerolinea": "Emirates",
+              "aeronave": "Airbus A380-800",
+              "matricula": "A6-EEU",
+              "tipo_operacion": "despegue",
+              "origen": "OMDB",
+              "destino": "EGLL",
+              "hora_programada_utc": "2026-08-30T13:22:00Z",
+              "posicion_rampa": "C4-08",
+              "estado": "embarcando"
+            },
+            {
+              "vuelo": "EK202",
+              "aerolinea": "Emirates",
+              "aeronave": "Boeing 777-300ER",
+              "matricula": "A6-EBU",
+              "tipo_operacion": "aterrizaje",
+              "origen": "KJFK",
+              "destino": "OMDB",
+              "hora_programada_utc": "2026-08-30T13:40:00Z",
+              "posicion_rampa": "C4-15",
+              "estado": "en_ruta"
+            }
+          ],
+          "notam_crudo": "A0455/26 NOTAMN Q)OMDB/QMRLC/IV/NBO/A/000/999/2515N05522E005 A)OMDB B)2608301300 C)2608301500EST E)RWY 12L/30R CLSD DUE SANDSTORM LOW VIS",
+          "tormenta_activa": {
+            "latitud": 25.1632,
+            "longitud": 55.4657,
+            "radio_impacto_km": 60
+          },
+          "vuelos_en_ruta": [
+            {
+              "id_vuelo": "EK074",
+              "destino": "OMDB",
+              "altitud_ft": 9000,
+              "latitud": 24.9532,
+              "longitud": 55.6557
+            },
+            {
+              "id_vuelo": "EK203",
+              "destino": "KJFK",
+              "altitud_ft": 37000,
+              "latitud": 27.5632,
+              "longitud": 52.9657
+            }
+          ]
+        }
+      },
+      {
+        "json": {
+          "reporte_meteorologico": {
+            "estacion": "YSSY",
+            "nombre_estacion": "Sydney Kingsford Smith Airport",
+            "hora_reporte_utc": "2026-08-30T04:00:00Z",
+            "metar_crudo": "YSSY 300400Z 20030G48KT 3000 TSRA FEW015 SCT025CB BKN040 24/19 Q1006 WS RWY16",
+            "viento": {
+              "direccion_grados": 200,
+              "velocidad_kt": 30,
+              "rafaga_kt": 48
+            },
+            "visibilidad_m": 3000,
+            "fenomenos": [
+              "TSRA"
+            ],
+            "actividad_electrica": true,
+            "windshear_reportado": true,
+            "nubes": [
+              {
+                "tipo": "SCT",
+                "altura_ft": 2500,
+                "cb": true
+              },
+              {
+                "tipo": "BKN",
+                "altura_ft": 4000,
+                "cb": false
+              }
+            ],
+            "temperatura_c": 24,
+            "punto_rocio_c": 19,
+            "qnh_hpa": 1006
+          },
+          "vuelos_programados": [
+            {
+              "vuelo": "QF12",
+              "aerolinea": "Qantas",
+              "aeronave": "Airbus A380-800",
+              "matricula": "VH-OQI",
+              "tipo_operacion": "aterrizaje",
+              "origen": "KLAX",
+              "destino": "YSSY",
+              "hora_programada_utc": "2026-08-30T04:19:00Z",
+              "posicion_rampa": "T1-52",
+              "estado": "en_ruta"
+            },
+            {
+              "vuelo": "VA863",
+              "aerolinea": "Virgin Australia",
+              "aeronave": "Boeing 737-800",
+              "matricula": "VH-YIR",
+              "tipo_operacion": "despegue",
+              "origen": "YSSY",
+              "destino": "YMML",
+              "hora_programada_utc": "2026-08-30T04:37:00Z",
+              "posicion_rampa": "T2-19",
+              "estado": "abordaje_pendiente"
+            }
+          ],
+          "notam_crudo": "A0322/26 NOTAMN Q)YSSY/QMRLC/IV/NBO/A/000/999/3356S15110E005 A)YSSY B)2608300400 C)2608300600EST E)RWY 16R/34L CLSD DUE TS AND WINDSHEAR RWY16",
+          "tormenta_activa": {
+            "latitud": -34.0399,
+            "longitud": 151.2653,
+            "radio_impacto_km": 70
+          },
+          "vuelos_en_ruta": [
+            {
+              "id_vuelo": "QF13",
+              "destino": "YSSY",
+              "altitud_ft": 8500,
+              "latitud": -34.2699,
+              "longitud": 151.4353
+            },
+            {
+              "id_vuelo": "VA864",
+              "destino": "YMML",
+              "altitud_ft": 36000,
+              "latitud": -31.7399,
+              "longitud": 148.6653
+            }
+          ]
+        }
+      },
+      {
+        "json": {
+          "reporte_meteorologico": {
+            "estacion": "LEMD",
+            "nombre_estacion": "Aeropuerto Adolfo Suarez Madrid-Barajas",
+            "hora_reporte_utc": "2026-08-30T11:00:00Z",
+            "metar_crudo": "LEMD 301100Z 25008KT 9999 FEW035 26/12 Q1018",
+            "viento": {
+              "direccion_grados": 250,
+              "velocidad_kt": 8,
+              "rafaga_kt": 11
+            },
+            "visibilidad_m": 9999,
+            "fenomenos": [],
+            "actividad_electrica": false,
+            "windshear_reportado": false,
+            "nubes": [
+              {
+                "tipo": "FEW",
+                "altura_ft": 3500,
+                "cb": false
+              }
+            ],
+            "temperatura_c": 26,
+            "punto_rocio_c": 12,
+            "qnh_hpa": 1018
+          },
+          "vuelos_programados": [
+            {
+              "vuelo": "IB6844",
+              "aerolinea": "Iberia",
+              "aeronave": "Airbus A321neo",
+              "matricula": "EC-NVA",
+              "tipo_operacion": "despegue",
+              "origen": "LEMD",
+              "destino": "SAEZ",
+              "hora_programada_utc": "2026-08-30T11:20:00Z",
+              "posicion_rampa": "T4-J34",
+              "estado": "embarcando"
+            },
+            {
+              "vuelo": "AA57",
+              "aerolinea": "American Airlines",
+              "aeronave": "Boeing 777-200ER",
+              "matricula": "N797AN",
+              "tipo_operacion": "aterrizaje",
+              "origen": "KJFK",
+              "destino": "LEMD",
+              "hora_programada_utc": "2026-08-30T11:38:00Z",
+              "posicion_rampa": "T4-K10",
+              "estado": "en_ruta"
+            }
+          ],
+          "notam_crudo": "A0899/26 NOTAMN Q)LEMD/QICAS/IV/NBO/A/000/999/4029N00334W005 A)LEMD B)2608301000 C)2608312359 E)ILS RWY32L CAT II/III NOT AVBL CAT I ONLY",
+          "tormenta_activa": {
+            "latitud": 44.1983,
+            "longitud": -6.6676,
+            "radio_impacto_km": 35
+          },
+          "vuelos_en_ruta": [
+            {
+              "id_vuelo": "IB6848",
+              "destino": "LEMD",
+              "altitud_ft": 8000,
+              "latitud": 40.5883,
+              "longitud": -3.4476
+            },
+            {
+              "id_vuelo": "AA58",
+              "destino": "KJFK",
+              "altitud_ft": 35000,
+              "latitud": 40.6883,
+              "longitud": -3.7176
+            }
+          ]
+        }
+      },
+      {
+        "json": {
+          "reporte_meteorologico": {
+            "estacion": "SBGR",
+            "nombre_estacion": "Aeroporto Internacional de Guarulhos (Sao Paulo)",
+            "hora_reporte_utc": "2026-08-30T18:00:00Z",
+            "metar_crudo": "SBGR 301800Z 09012KT 5000 TSRA FEW020 SCT030CB 23/20 Q1015",
+            "viento": {
+              "direccion_grados": 90,
+              "velocidad_kt": 12,
+              "rafaga_kt": 18
+            },
+            "visibilidad_m": 5000,
+            "fenomenos": [
+              "TSRA"
+            ],
+            "actividad_electrica": true,
+            "windshear_reportado": false,
+            "nubes": [
+              {
+                "tipo": "SCT",
+                "altura_ft": 3000,
+                "cb": true
+              }
+            ],
+            "temperatura_c": 23,
+            "punto_rocio_c": 20,
+            "qnh_hpa": 1015
+          },
+          "vuelos_programados": [
+            {
+              "vuelo": "G31251",
+              "aerolinea": "GOL Linhas Aereas",
+              "aeronave": "Boeing 737 MAX 8",
+              "matricula": "PR-XMI",
+              "tipo_operacion": "despegue",
+              "origen": "SBGR",
+              "destino": "SAEZ",
+              "hora_programada_utc": "2026-08-30T18:19:00Z",
+              "posicion_rampa": "3-D08",
+              "estado": "embarcando"
+            },
+            {
+              "vuelo": "LA3400",
+              "aerolinea": "LATAM Brasil",
+              "aeronave": "Airbus A320neo",
+              "matricula": "PR-XBS",
+              "tipo_operacion": "aterrizaje",
+              "origen": "SAEZ",
+              "destino": "SBGR",
+              "hora_programada_utc": "2026-08-30T18:37:00Z",
+              "posicion_rampa": "2-C14",
+              "estado": "en_ruta"
+            }
+          ],
+          "notam_crudo": "A0511/26 NOTAMN Q)SBGR/QMRLC/IV/NBO/A/000/999/2326S04628W005 A)SBGR B)2608301800 C)2608302000EST E)RWY 09R/27L CLSD DUE TS IN VICINITY",
+          "tormenta_activa": {
+            "latitud": -23.3456,
+            "longitud": -46.5531,
+            "radio_impacto_km": 55
+          },
+          "vuelos_en_ruta": [
+            {
+              "id_vuelo": "G31260",
+              "destino": "SBGR",
+              "altitud_ft": 7000,
+              "latitud": -23.1556,
+              "longitud": -46.6831
+            },
+            {
+              "id_vuelo": "LA3410",
+              "destino": "SAEZ",
+              "altitud_ft": 34000,
+              "latitud": -25.7456,
+              "longitud": -44.3531
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "meteorologia": {
+    "tipo_alerta": "Tormenta Electrica Severa",
+    "rafagas_viento_kt": 52,
+    "actividad_electrica": true
+  },
+  "vuelos_activos": [
+    {
+      "id_vuelo": "AR1130",
+      "aerolinea": "Aerolineas Argentinas",
+      "tipo_aeronave": "Airbus A330-200",
+      "estado_operativo": "en_aproximacion",
+      "hora_programada_original": "2026-08-30T21:20:00Z",
+      "combustible_remanente_minutos": 32
+    },
+    {
+      "id_vuelo": "JA3045",
+      "aerolinea": "JetSmart",
+      "tipo_aeronave": "Airbus A320neo",
+      "estado_operativo": "en_aproximacion",
+      "hora_programada_original": "2026-08-30T21:30:00Z",
+      "combustible_remanente_minutos": 58
+    },
+    {
+      "id_vuelo": "AR1303",
+      "aerolinea": "Aerolineas Argentinas",
+      "tipo_aeronave": "Boeing 737-800",
+      "estado_operativo": "embarcando",
+      "hora_programada_original": "2026-08-30T21:15:00Z"
+    },
+    {
+      "id_vuelo": "FO2210",
+      "aerolinea": "Flybondi",
+      "tipo_aeronave": "Boeing 737-800",
+      "estado_operativo": "listo_para_pushback",
+      "hora_programada_original": "2026-08-30T21:05:00Z"
+    }
+  ]
+}

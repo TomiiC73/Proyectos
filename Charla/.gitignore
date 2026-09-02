@@ -1,0 +1,23 @@
+README.md
+
+# Dependencias
+node_modules/
+
+# Builds
+dist/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Editores
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Uploads temporales
+uploads/

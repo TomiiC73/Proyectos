@@ -1,0 +1,1245 @@
+{
+  "name": "Trivia por Telegram - Bot con Notificación al Admin",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "node-tg-trigger",
+      "name": "Telegram Trigger - Recibir Mensaje",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        180,
+        520
+      ],
+      "webhookId": "trivia-telegram-trigger-demo"
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const msg = $json.message || {};\nconst texto = (msg.text || '').trim();\nconst nombre = msg.from ? (msg.from.first_name || msg.from.username || ('Jugador' + msg.from.id)) : 'Anonimo';\nconst chatId = msg.chat ? msg.chat.id : null;\n\nlet accion = '';\nlet respuesta = '';\nconst textoLower = texto.toLowerCase();\n\nif (textoLower.indexOf('/start') === 0 || textoLower.indexOf('/unirme') === 0) {\n  accion = 'unirse';\n} else if (textoLower.indexOf('/') === 0) {\n  // Cualquier otro comando (ej. /reiniciar) no es valido en el bot de jugadores:\n  // eso lo maneja el bot del organizador. Se ignora y no cuenta como respuesta.\n  accion = '';\n  respuesta = '';\n} else {\n  respuesta = texto;\n}\n\nreturn [{\n  json: {\n    nombre: nombre,\n    accion: accion,\n    respuesta: respuesta,\n    chat_id: chatId\n  }\n}];"
+      },
+      "id": "node-interpretar",
+      "name": "Interpretar Mensaje",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const PREGUNTAS = [\n  { texto: \"Cuando dos aplicaciones no intercambian información, ¿qué rol termina cumpliendo la persona?\", opciones: { A: \"Supervisora del área\", B: \"Intermediaria entre sistemas\", C: \"Auditora de calidad\", D: \"Responsable de backups\" }, correcta: \"B\" },\n  { texto: \"Como criterio general, ¿qué conviene automatizar?\", opciones: { A: \"Todo, sin excepciones\", B: \"Solo tareas creativas\", C: \"Los casos normales, derivando los especiales\", D: \"Únicamente lo urgente\" }, correcta: \"C\" },\n  { texto: \"En n8n, ¿qué representa cada nodo del workflow?\", opciones: { A: \"Un servidor físico\", B: \"Una operación\", C: \"Un usuario del sistema\", D: \"Un tipo de error\" }, correcta: \"B\" },\n  { texto: \"¿Cuándo es más eficiente una organización?\", opciones: { A: \"Cuando gasta más para producir más\", B: \"Cuando logra el mismo resultado con menos recursos\", C: \"Cuando reduce la calidad\", D: \"Cuando contrata más gente\" }, correcta: \"B\" },\n  { texto: \"¿Qué le permite hacer a n8n la información que guarda de cada ejecución?\", opciones: { A: \"Facturar a los clientes\", B: \"Rastrear qué pasó y dónde falló\", C: \"Generar backups\", D: \"Cambiar los permisos de usuario\" }, correcta: \"B\" },\n  { texto: \"¿Qué significa la sigla RPA?\", opciones: { A: \"Remote Process Automation\", B: \"Rapid Process Application\", C: \"Robotic Process Automation\", D: \"Real-time Program Access\" }, correcta: \"C\" },\n  { texto: \"¿La automatización elimina todos los errores posibles?\", opciones: { A: \"Sí, nunca falla\", B: \"No, un workflow también puede fallar\", C: \"Sí, usando IA\", D: \"No aplica a errores\" }, correcta: \"B\" },\n  { texto: \"¿Qué hay que hacer antes de automatizar un proceso mal diseñado?\", opciones: { A: \"Automatizarlo igual\", B: \"Contratar más gente\", C: \"Entenderlo primero\", D: \"Nada, se corrige solo\" }, correcta: \"C\" },\n  { texto: \"¿Qué tipo de decisiones puede tomar un robot RPA por sí solo?\", opciones: { A: \"Cualquier decisión compleja\", B: \"Decisiones simples basadas en condiciones definidas\", C: \"Ninguna decisión\", D: \"Solo decisiones financieras\" }, correcta: \"B\" },\n];\n\nconst data = $getWorkflowStaticData('global');\ndata.participantes = data.participantes || {};\n\nconst nombre = $json.nombre || 'Anonimo';\nconst accion = ($json.accion || '').toString().toLowerCase().trim();\nconst respuestaCruda = ($json.respuesta || '').toString().trim();\nconst chatId = $json.chat_id;\nconst fase = data.fase || 'inactivo';\n\nif (!data.participantes[nombre]) {\n  data.participantes[nombre] = { etapa: 0, puntaje: 0, historial: [], chatId: chatId };\n}\ndata.participantes[nombre].chatId = chatId;\n\nconst estado = data.participantes[nombre];\nconst preguntaActual = estado.etapa < PREGUNTAS.length ? PREGUNTAS[estado.etapa] : null;\n\nreturn [{\n  json: {\n    nombre: nombre,\n    accion: accion,\n    respuesta: respuestaCruda,\n    chat_id: chatId,\n    fase: fase,\n    etapa_actual: estado.etapa,\n    puntaje_actual: estado.puntaje,\n    total_preguntas: PREGUNTAS.length,\n    pregunta_actual: preguntaActual\n  }\n}];"
+      },
+      "id": "node-cargar",
+      "name": "Cargar Preguntas y Estado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        620,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.fase }}",
+              "rightValue": "jugando",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-jugando",
+      "name": "¿Está Jugando?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        840,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.fase }}",
+              "rightValue": "lobby",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-lobby",
+      "name": "¿Está en Lobby?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const mensaje = ($json.accion === 'unirse')\n  ? '👋 ¡Te uniste! Espera a que el organizador mande /comenzar para arrancar.'\n  : '⏳ Ya estas anotado. Espera a que el organizador mande /comenzar.';\n\nreturn [{\n  json: {\n    chat_id: $json.chat_id,\n    tipo_evento: 'en_lobby',\n    correcta: null,\n    completado: false,\n    mensaje_participante: mensaje\n  }\n}];"
+      },
+      "id": "node-en-lobby",
+      "name": "En Lobby",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const mensaje = ($json.accion === 'unirse')\n  ? '⏳ Todavia no arranco el juego. Espera el aviso del organizador y volve a mandar /unirme.'\n  : '⏳ El juego esta pausado en este momento. Espera a que el organizador lo reactive.';\n\nreturn [{\n  json: {\n    chat_id: $json.chat_id,\n    tipo_evento: 'juego_no_activo',\n    correcta: null,\n    completado: false,\n    mensaje_participante: mensaje\n  }\n}];"
+      },
+      "id": "node-juego-no-activo",
+      "name": "Juego No Activo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.respuesta }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-tiene-respuesta",
+      "name": "¿Envió una Respuesta?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s1",
+              "name": "tipo_evento",
+              "value": "mostrar_pregunta",
+              "type": "string"
+            },
+            {
+              "id": "s2",
+              "name": "mensaje_participante",
+              "value": "={{ $json.pregunta_actual ? ('Pregunta ' + ($json.etapa_actual + 1) + '/' + $json.total_preguntas + ': ' + $json.pregunta_actual.texto + '\\n\\nA) ' + $json.pregunta_actual.opciones.A + '\\nB) ' + $json.pregunta_actual.opciones.B + '\\nC) ' + $json.pregunta_actual.opciones.C + '\\nD) ' + $json.pregunta_actual.opciones.D + '\\n\\nRespondé con la letra (A, B, C o D).') : ('Ya completaste el juego. Puntaje: ' + $json.puntaje_actual + '/' + $json.total_preguntas) }}",
+              "type": "string"
+            },
+            {
+              "id": "s3",
+              "name": "chat_id",
+              "value": "={{ $json.chat_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {
+          "includeOtherFields": true
+        }
+      },
+      "id": "node-set-mostrar-pregunta",
+      "name": "Mostrar Pregunta Actual",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1280,
+        840
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const PREGUNTAS = [\n  { texto: \"Cuando dos aplicaciones no intercambian información, ¿qué rol termina cumpliendo la persona?\", opciones: { A: \"Supervisora del área\", B: \"Intermediaria entre sistemas\", C: \"Auditora de calidad\", D: \"Responsable de backups\" }, correcta: \"B\" },\n  { texto: \"Como criterio general, ¿qué conviene automatizar?\", opciones: { A: \"Todo, sin excepciones\", B: \"Solo tareas creativas\", C: \"Los casos normales, derivando los especiales\", D: \"Únicamente lo urgente\" }, correcta: \"C\" },\n  { texto: \"En n8n, ¿qué representa cada nodo del workflow?\", opciones: { A: \"Un servidor físico\", B: \"Una operación\", C: \"Un usuario del sistema\", D: \"Un tipo de error\" }, correcta: \"B\" },\n  { texto: \"¿Cuándo es más eficiente una organización?\", opciones: { A: \"Cuando gasta más para producir más\", B: \"Cuando logra el mismo resultado con menos recursos\", C: \"Cuando reduce la calidad\", D: \"Cuando contrata más gente\" }, correcta: \"B\" },\n  { texto: \"¿Qué le permite hacer a n8n la información que guarda de cada ejecución?\", opciones: { A: \"Facturar a los clientes\", B: \"Rastrear qué pasó y dónde falló\", C: \"Generar backups\", D: \"Cambiar los permisos de usuario\" }, correcta: \"B\" },\n  { texto: \"¿Qué significa la sigla RPA?\", opciones: { A: \"Remote Process Automation\", B: \"Rapid Process Application\", C: \"Robotic Process Automation\", D: \"Real-time Program Access\" }, correcta: \"C\" },\n  { texto: \"¿La automatización elimina todos los errores posibles?\", opciones: { A: \"Sí, nunca falla\", B: \"No, un workflow también puede fallar\", C: \"Sí, usando IA\", D: \"No aplica a errores\" }, correcta: \"B\" },\n  { texto: \"¿Qué hay que hacer antes de automatizar un proceso mal diseñado?\", opciones: { A: \"Automatizarlo igual\", B: \"Contratar más gente\", C: \"Entenderlo primero\", D: \"Nada, se corrige solo\" }, correcta: \"C\" },\n  { texto: \"¿Qué tipo de decisiones puede tomar un robot RPA por sí solo?\", opciones: { A: \"Cualquier decisión compleja\", B: \"Decisiones simples basadas en condiciones definidas\", C: \"Ninguna decisión\", D: \"Solo decisiones financieras\" }, correcta: \"B\" },\n];\n\nconst data = $getWorkflowStaticData('global');\nconst nombre = $json.nombre;\nconst estado = data.participantes[nombre];\n\nconst yaHabiaTerminado = estado.etapa >= PREGUNTAS.length;\nconst preguntaActual = yaHabiaTerminado ? null : PREGUNTAS[estado.etapa];\n\nlet correcta = false;\nif (preguntaActual) {\n  const respuestaNorm = ($json.respuesta || '').trim().toUpperCase();\n  const letraCorrecta = preguntaActual.correcta;\n  const textoCorrecta = preguntaActual.opciones[letraCorrecta].toUpperCase();\n  correcta = (respuestaNorm === letraCorrecta) || (respuestaNorm === textoCorrecta);\n\n  estado.etapa += 1;\n  if (correcta) estado.puntaje += 1;\n  estado.historial.push({\n    pregunta: preguntaActual.texto,\n    respuesta_dada: $json.respuesta,\n    correcta: correcta,\n    hora: new Date().toISOString()\n  });\n}\n\nconst completado = estado.etapa >= PREGUNTAS.length;\nconst preguntaSiguiente = completado ? null : PREGUNTAS[estado.etapa];\nconst todosCompletaron = completado && Object.values(data.participantes).every(function (p) { return p.etapa >= PREGUNTAS.length; });\n\nreturn [{\n  json: {\n    nombre: nombre,\n    chat_id: $json.chat_id,\n    respuesta: $json.respuesta,\n    correcta: correcta,\n    etapa_actual: estado.etapa,\n    puntaje_actual: estado.puntaje,\n    total_preguntas: PREGUNTAS.length,\n    completado: completado,\n    pregunta_siguiente: preguntaSiguiente,\n    chat_id_admin: data.adminChatId || null,\n    todos_completaron: todosCompletaron\n  }\n}];"
+      },
+      "id": "node-evaluar",
+      "name": "Evaluar y Avanzar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.completado }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-completo",
+      "name": "¿Completó Todas las Preguntas?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f1",
+              "name": "tipo_evento",
+              "value": "juego_completado",
+              "type": "string"
+            },
+            {
+              "id": "f2",
+              "name": "mensaje_telegram",
+              "value": "={{ '🏁 ' + $json.nombre + ' completó el juego con ' + $json.puntaje_actual + '/' + $json.total_preguntas + ' puntos.' }}",
+              "type": "string"
+            },
+            {
+              "id": "f3",
+              "name": "mensaje_participante",
+              "value": "={{ (($json.correcta) ? '✅ Correcto!\\n\\n' : '❌ Incorrecto.\\n\\n') + '🏁 Terminaste la trivia! Puntaje final: ' + $json.puntaje_actual + '/' + $json.total_preguntas }}",
+              "type": "string"
+            },
+            {
+              "id": "f4",
+              "name": "chat_id",
+              "value": "={{ $json.chat_id }}",
+              "type": "string"
+            },
+            {
+              "id": "f5",
+              "name": "chat_id_admin",
+              "value": "={{ $json.chat_id_admin }}",
+              "type": "string"
+            },
+            {
+              "id": "f6",
+              "name": "correcta",
+              "value": "={{ $json.correcta }}",
+              "type": "boolean"
+            },
+            {
+              "id": "f7",
+              "name": "completado",
+              "value": "={{ $json.completado }}",
+              "type": "boolean"
+            },
+            {
+              "id": "f8",
+              "name": "todos_completaron",
+              "value": "={{ $json.todos_completaron }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {
+          "includeOtherFields": true
+        }
+      },
+      "id": "node-set-final",
+      "name": "Mensaje Final (Ganador)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1720,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "g1",
+              "name": "tipo_evento",
+              "value": "avance",
+              "type": "string"
+            },
+            {
+              "id": "g2",
+              "name": "mensaje_telegram",
+              "value": "={{ (($json.correcta) ? '✅ ' : '❌ ') + $json.nombre + ' respondió la pregunta ' + $json.etapa_actual + ' con: ' + $json.respuesta + ' -> avanza a la pregunta ' + ($json.etapa_actual + 1) }}",
+              "type": "string"
+            },
+            {
+              "id": "g3",
+              "name": "mensaje_participante",
+              "value": "={{ (($json.correcta) ? '✅ Correcto!' : '❌ Incorrecto.') + '\\n\\nPregunta ' + ($json.etapa_actual + 1) + '/' + $json.total_preguntas + ': ' + $json.pregunta_siguiente.texto + '\\n\\nA) ' + $json.pregunta_siguiente.opciones.A + '\\nB) ' + $json.pregunta_siguiente.opciones.B + '\\nC) ' + $json.pregunta_siguiente.opciones.C + '\\nD) ' + $json.pregunta_siguiente.opciones.D }}",
+              "type": "string"
+            },
+            {
+              "id": "g4",
+              "name": "chat_id",
+              "value": "={{ $json.chat_id }}",
+              "type": "string"
+            },
+            {
+              "id": "g5",
+              "name": "chat_id_admin",
+              "value": "={{ $json.chat_id_admin }}",
+              "type": "string"
+            },
+            {
+              "id": "g6",
+              "name": "correcta",
+              "value": "={{ $json.correcta }}",
+              "type": "boolean"
+            },
+            {
+              "id": "g7",
+              "name": "completado",
+              "value": "={{ $json.completado }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {
+          "includeOtherFields": true
+        }
+      },
+      "id": "node-set-avanzo",
+      "name": "Avanzó de Pregunta",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1720,
+        780
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.todos_completaron }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-todos-completaron",
+      "name": "¿Completaron Todos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1940,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const TOTAL_PREGUNTAS = 9;\nconst data = $getWorkflowStaticData('global');\nconst participantes = data.participantes || {};\n\nconst ranking = Object.keys(participantes)\n  .map(function (nombre) { return { nombre: nombre, puntaje: participantes[nombre].puntaje }; })\n  .sort(function (a, b) { return b.puntaje - a.puntaje; });\n\nconst medallas = ['🥇', '🥈', '🥉'];\nconst lineas = ranking.map(function (r, i) {\n  const prefijo = medallas[i] || ((i + 1) + '.');\n  return prefijo + ' ' + r.nombre + ' - ' + r.puntaje + '/' + TOTAL_PREGUNTAS + ' puntos';\n});\n\nconst tabla = '🏆 ¡Trivia terminada! Tabla de clasificación final:\\n\\n' + lineas.join('\\n');\n\nreturn [{\n  json: {\n    chat_id_admin: data.adminChatId || null,\n    mensaje_telegram: tabla,\n    tabla_texto: tabla\n  }\n}];"
+      },
+      "id": "node-tabla-clasificacion",
+      "name": "Armar Tabla de Clasificación",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const data = $getWorkflowStaticData('global');\nconst participantes = data.participantes || {};\nconst tabla = $json.tabla_texto;\n\nconst items = Object.keys(participantes).map(function (nombre) {\n  return { json: { chat_id: participantes[nombre].chatId, mensaje: tabla } };\n});\n\nreturn items;"
+      },
+      "id": "node-enviar-tabla-jugadores",
+      "name": "Enviar Tabla a Todos los Jugadores",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2380,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chat_id_admin }}",
+        "text": "={{ $json.mensaje_telegram }}",
+        "additionalFields": {}
+      },
+      "id": "node-telegram-pantalla",
+      "name": "Notificar al Admin",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1940,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "return [{\n  json: {\n    chat_id: $json.chat_id,\n    mensaje: $json.mensaje_participante || 'Listo.',\n    tipo_evento: $json.tipo_evento || null,\n    correcta: ($json.correcta === undefined ? null : $json.correcta),\n    completado: !!$json.completado\n  }\n}];"
+      },
+      "id": "node-preparar-final",
+      "name": "Preparar Mensaje para el Jugador",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.mensaje }}",
+        "additionalFields": {}
+      },
+      "id": "node-telegram-responder",
+      "name": "Responder al Jugador",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2380,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "node-tg-trigger-admin",
+      "name": "Telegram Trigger - Admin",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        180,
+        1300
+      ],
+      "webhookId": "trivia-telegram-trigger-admin-demo"
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const msg = $json.message || {};\nconst texto = (msg.text || '').trim();\nconst nombre = msg.from ? (msg.from.first_name || msg.from.username || ('Organizador' + msg.from.id)) : 'Organizador';\nconst chatId = msg.chat ? msg.chat.id : null;\nconst textoLower = texto.toLowerCase();\n\nlet accion = 'desconocido';\nif (textoLower.indexOf('/iniciar') === 0) accion = 'iniciar';\nelse if (textoLower.indexOf('/comenzar') === 0) accion = 'comenzar';\nelse if (textoLower.indexOf('/detener') === 0) accion = 'detener';\nelse if (textoLower.indexOf('/reiniciar') === 0) accion = 'reiniciar';\nelse if (textoLower.indexOf('/resetear') === 0) accion = 'resetear';\n\nreturn [{\n  json: {\n    nombre: nombre,\n    accion: accion,\n    chat_id: chatId\n  }\n}];"
+      },
+      "id": "node-interpretar-admin",
+      "name": "Interpretar Comando Admin",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.accion }}",
+              "rightValue": "iniciar",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-iniciar",
+      "name": "¿Es /iniciar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        620,
+        1180
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const data = $getWorkflowStaticData('global');\ndata.fase = 'lobby';\ndata.participantes = {};\ndata.adminChatId = $json.chat_id;\n\nreturn [{\n  json: {\n    chat_id: $json.chat_id,\n    mensaje_participante: '✅ Lobby abierto. Los jugadores ya pueden mandar /unirme. Cuando estén todos los que van a jugar, mandá /comenzar.'\n  }\n}];"
+      },
+      "id": "node-iniciar",
+      "name": "Iniciar Juego (Abrir Lobby)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        840,
+        980
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.accion }}",
+              "rightValue": "comenzar",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-comenzar",
+      "name": "¿Es /comenzar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        840,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const PREGUNTAS = [\n  { texto: \"Cuando dos aplicaciones no intercambian información, ¿qué rol termina cumpliendo la persona?\", opciones: { A: \"Supervisora del área\", B: \"Intermediaria entre sistemas\", C: \"Auditora de calidad\", D: \"Responsable de backups\" }, correcta: \"B\" },\n  { texto: \"Como criterio general, ¿qué conviene automatizar?\", opciones: { A: \"Todo, sin excepciones\", B: \"Solo tareas creativas\", C: \"Los casos normales, derivando los especiales\", D: \"Únicamente lo urgente\" }, correcta: \"C\" },\n  { texto: \"En n8n, ¿qué representa cada nodo del workflow?\", opciones: { A: \"Un servidor físico\", B: \"Una operación\", C: \"Un usuario del sistema\", D: \"Un tipo de error\" }, correcta: \"B\" },\n  { texto: \"¿Cuándo es más eficiente una organización?\", opciones: { A: \"Cuando gasta más para producir más\", B: \"Cuando logra el mismo resultado con menos recursos\", C: \"Cuando reduce la calidad\", D: \"Cuando contrata más gente\" }, correcta: \"B\" },\n  { texto: \"¿Qué le permite hacer a n8n la información que guarda de cada ejecución?\", opciones: { A: \"Facturar a los clientes\", B: \"Rastrear qué pasó y dónde falló\", C: \"Generar backups\", D: \"Cambiar los permisos de usuario\" }, correcta: \"B\" },\n  { texto: \"¿Qué significa la sigla RPA?\", opciones: { A: \"Remote Process Automation\", B: \"Rapid Process Application\", C: \"Robotic Process Automation\", D: \"Real-time Program Access\" }, correcta: \"C\" },\n  { texto: \"¿La automatización elimina todos los errores posibles?\", opciones: { A: \"Sí, nunca falla\", B: \"No, un workflow también puede fallar\", C: \"Sí, usando IA\", D: \"No aplica a errores\" }, correcta: \"B\" },\n  { texto: \"¿Qué hay que hacer antes de automatizar un proceso mal diseñado?\", opciones: { A: \"Automatizarlo igual\", B: \"Contratar más gente\", C: \"Entenderlo primero\", D: \"Nada, se corrige solo\" }, correcta: \"C\" },\n  { texto: \"¿Qué tipo de decisiones puede tomar un robot RPA por sí solo?\", opciones: { A: \"Cualquier decisión compleja\", B: \"Decisiones simples basadas en condiciones definidas\", C: \"Ninguna decisión\", D: \"Solo decisiones financieras\" }, correcta: \"B\" },\n];\n\nconst data = $getWorkflowStaticData('global');\ndata.fase = 'jugando';\n\nconst primera = PREGUNTAS[0];\nconst textoPregunta = 'Pregunta 1/' + PREGUNTAS.length + ': ' + primera.texto +\n  '\\n\\nA) ' + primera.opciones.A +\n  '\\nB) ' + primera.opciones.B +\n  '\\nC) ' + primera.opciones.C +\n  '\\nD) ' + primera.opciones.D +\n  '\\n\\nRespondé con la letra (A, B, C o D).';\n\nconst participantes = data.participantes || {};\nconst items = Object.keys(participantes).map(function (nombre) {\n  return { json: { chat_id: participantes[nombre].chatId, mensaje: textoPregunta } };\n});\n\nreturn items;"
+      },
+      "id": "node-comenzar-enviar",
+      "name": "Enviar Pregunta 1 a Todos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        1140
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const data = $getWorkflowStaticData('global');\nconst cantidad = Object.keys(data.participantes || {}).length;\n\nreturn [{\n  json: {\n    chat_id: $json.chat_id,\n    mensaje_participante: '🚀 Juego iniciado con ' + cantidad + ' jugador(es). ¡Buena suerte para todos!'\n  }\n}];"
+      },
+      "id": "node-comenzar-confirmar",
+      "name": "Confirmar Inicio de Partida",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.accion }}",
+              "rightValue": "detener",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-detener",
+      "name": "¿Es /detener?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        1460
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const data = $getWorkflowStaticData('global');\ndata.fase = 'inactivo';\n\nreturn [{\n  json: {\n    chat_id: $json.chat_id,\n    mensaje_participante: '⏸️ Juego detenido. Mandá /iniciar para abrir un lobby nuevo cuando quieras retomar.'\n  }\n}];"
+      },
+      "id": "node-detener",
+      "name": "Detener Juego",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        1360
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.accion }}",
+              "rightValue": "reiniciar",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-reiniciar-admin",
+      "name": "¿Es /reiniciar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        1560
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const data = $getWorkflowStaticData('global');\ndata.participantes = {};\n\nreturn [{\n  json: {\n    nombre: $json.nombre,\n    chat_id: $json.chat_id,\n    tipo_evento: 'reinicio',\n    correcta: null,\n    etapa_actual: 0,\n    puntaje_actual: 0,\n    total_preguntas: $json.total_preguntas,\n    completado: false,\n    pregunta_actual: null,\n    pregunta_siguiente: null,\n    mensaje_participante: 'Progreso reiniciado. Si el juego sigue activo, los jugadores pueden seguir jugando desde cero.'\n  }\n}];"
+      },
+      "id": "node-reiniciar",
+      "name": "Reiniciar Juego",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1720,
+        1500
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.accion }}",
+              "rightValue": "resetear",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-resetear",
+      "name": "¿Es /resetear?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1940,
+        1560
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const data = $getWorkflowStaticData('global');\ndata.fase = 'inactivo';\ndata.participantes = {};\ndata.adminChatId = null;\n\nreturn [{\n  json: {\n    chat_id: $json.chat_id,\n    mensaje_participante: '🗑️ Se borraron todos los participantes. El juego volvió a estar inactivo. Mandá /iniciar para abrir un lobby nuevo.'\n  }\n}];"
+      },
+      "id": "node-resetear",
+      "name": "Resetear Todo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        1560
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "return [{\n  json: {\n    chat_id: $json.chat_id,\n    mensaje_participante: 'Comando no reconocido. Usá /iniciar, /comenzar, /detener, /reiniciar o /resetear.'\n  }\n}];"
+      },
+      "id": "node-admin-desconocido",
+      "name": "Comando Admin Desconocido",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1720,
+        1660
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.mensaje_participante }}",
+        "additionalFields": {}
+      },
+      "id": "node-telegram-responder-admin",
+      "name": "Responder al Admin",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1940,
+        1400
+      ]
+    }
+  ],
+  "connections": {
+    "Telegram Trigger - Recibir Mensaje": {
+      "main": [
+        [
+          {
+            "node": "Interpretar Mensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpretar Mensaje": {
+      "main": [
+        [
+          {
+            "node": "Cargar Preguntas y Estado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cargar Preguntas y Estado": {
+      "main": [
+        [
+          {
+            "node": "¿Está Jugando?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Está Jugando?": {
+      "main": [
+        [
+          {
+            "node": "¿Envió una Respuesta?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Está en Lobby?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Está en Lobby?": {
+      "main": [
+        [
+          {
+            "node": "En Lobby",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Juego No Activo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "En Lobby": {
+      "main": [
+        [
+          {
+            "node": "Preparar Mensaje para el Jugador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Juego No Activo": {
+      "main": [
+        [
+          {
+            "node": "Preparar Mensaje para el Jugador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Envió una Respuesta?": {
+      "main": [
+        [
+          {
+            "node": "Evaluar y Avanzar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mostrar Pregunta Actual",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluar y Avanzar": {
+      "main": [
+        [
+          {
+            "node": "¿Completó Todas las Preguntas?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Completó Todas las Preguntas?": {
+      "main": [
+        [
+          {
+            "node": "Mensaje Final (Ganador)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Avanzó de Pregunta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensaje Final (Ganador)": {
+      "main": [
+        [
+          {
+            "node": "Notificar al Admin",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Preparar Mensaje para el Jugador",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "¿Completaron Todos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Completaron Todos?": {
+      "main": [
+        [
+          {
+            "node": "Armar Tabla de Clasificación",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Armar Tabla de Clasificación": {
+      "main": [
+        [
+          {
+            "node": "Notificar al Admin",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Enviar Tabla a Todos los Jugadores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Tabla a Todos los Jugadores": {
+      "main": [
+        [
+          {
+            "node": "Responder al Jugador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Avanzó de Pregunta": {
+      "main": [
+        [
+          {
+            "node": "Notificar al Admin",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Preparar Mensaje para el Jugador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mostrar Pregunta Actual": {
+      "main": [
+        [
+          {
+            "node": "Preparar Mensaje para el Jugador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Mensaje para el Jugador": {
+      "main": [
+        [
+          {
+            "node": "Responder al Jugador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger - Admin": {
+      "main": [
+        [
+          {
+            "node": "Interpretar Comando Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpretar Comando Admin": {
+      "main": [
+        [
+          {
+            "node": "¿Es /iniciar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es /iniciar?": {
+      "main": [
+        [
+          {
+            "node": "Iniciar Juego (Abrir Lobby)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Es /comenzar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es /comenzar?": {
+      "main": [
+        [
+          {
+            "node": "Enviar Pregunta 1 a Todos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Confirmar Inicio de Partida",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Es /detener?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es /detener?": {
+      "main": [
+        [
+          {
+            "node": "Detener Juego",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Es /reiniciar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es /reiniciar?": {
+      "main": [
+        [
+          {
+            "node": "Reiniciar Juego",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Es /resetear?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es /resetear?": {
+      "main": [
+        [
+          {
+            "node": "Resetear Todo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Comando Admin Desconocido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resetear Todo": {
+      "main": [
+        [
+          {
+            "node": "Responder al Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Iniciar Juego (Abrir Lobby)": {
+      "main": [
+        [
+          {
+            "node": "Responder al Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Pregunta 1 a Todos": {
+      "main": [
+        [
+          {
+            "node": "Responder al Jugador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmar Inicio de Partida": {
+      "main": [
+        [
+          {
+            "node": "Responder al Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detener Juego": {
+      "main": [
+        [
+          {
+            "node": "Responder al Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reiniciar Juego": {
+      "main": [
+        [
+          {
+            "node": "Responder al Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Comando Admin Desconocido": {
+      "main": [
+        [
+          {
+            "node": "Responder al Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
