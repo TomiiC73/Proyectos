@@ -25,7 +25,7 @@ Aplicación TODO dockerizada con arquitectura de microservicios. Implementa prá
 
 ---
 
-### [DevOps (Gitlab CI/CD)](./DevOps%20(Gitlab%20CI/CD))
+### [DevOps (Gitlab CI/CD)](./DevOps%20(Gitlab%20CI))
 Evolución del proyecto Docker con implementación completa de CI/CD en GitLab. Pipeline automatizado con 8 stages: escaneo de secretos, linting de código, análisis de Dockerfiles, escaneo de infraestructura, build, escaneo de vulnerabilidades, deploy y tests de producción. Implementa HTTPS y mejores prácticas de seguridad.
 
 **Tecnologías:** GitLab CI/CD, Docker, Trivy, Checkov, detect-secrets, React, Flask, FastAPI, Nginx
@@ -39,28 +39,28 @@ Sistema bancario web avanzado con múltiples vulnerabilidades intencionales para
 
 ---
 
-### [Aeropuertos — Cierre de Rampa (n8n)](./aeropuertos-cierre-rampa-n8n)
+### [Aeropuertos — Cierre de Rampa (n8n)](./Proyectos%20n8n/aeropuertos-cierre-rampa-n8n)
 Flujo de automatización en n8n que orquesta la respuesta operativa ante condiciones meteorológicas severas en rampa: evalúa un reporte METAR, identifica los vuelos en ventana de riesgo y dispara en paralelo las notificaciones a las áreas involucradas (pista, mantenimiento, terminal, auditoría). Demo técnica desarrollada para la defensa de un TPI.
 
 **Tecnologías:** n8n, JavaScript, JSON (mock de datos meteorológicos y vuelos)
 
 ---
 
-### [Trivia por Telegram (n8n)](./trivia-telegram-n8n)
+### [Trivia por Telegram (n8n)](./Proyectos%20n8n/trivia-telegram-n8n)
 Bot de trivia en vivo (5 preguntas de opción múltiple, temática tech/n8n) construido sobre n8n Cloud con dos bots de Telegram: uno para jugadores y otro de administración para controlar la partida y ver respuestas en tiempo real. Al finalizar, envía automáticamente una tabla de clasificación a todos los participantes.
 
 **Tecnologías:** n8n Cloud, Telegram Bot API, JavaScript
 
 ---
 
-### [EscapeRoomHackerTech](./EscapeRoomHackerTech)
+### [EscapeRoomHackerTech](./EscapeRoomHackerTech%20-%20UTNFRC)
 Primera versión de "HackerBank", un banco ficticio usado como escape room de ciberseguridad para el evento HackerTech (UTN-FRC). El segundo factor de autenticación es reconocimiento facial sin detección de vida (liveness), pensado para que los participantes lo vulneren mostrando una foto a la cámara.
 
 **Tecnologías:** Python, Flask, SQLite, Docker, reconocimiento facial
 
 ---
 
-### [HackerTech](./HackerTech)
+### [HackerTech](./HackerTech%20-%20UTNFRC)
 Evolución de HackerBank para el evento HackerTech (UTN-FRC): reemplaza el reconocimiento facial por un segundo factor real con passkeys FIDO2/WebAuthn (Windows Hello, Touch ID), manteniendo el código del laboratorio anterior en `_legacy_face_auth/` como referencia. Incluye guía para el equipo instructor y un proxy de despliegue en Vercel.
 
 **Tecnologías:** Python, Flask, WebAuthn/FIDO2, Docker, Vercel
