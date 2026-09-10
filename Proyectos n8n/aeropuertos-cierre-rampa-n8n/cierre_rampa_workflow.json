@@ -1,23 +1,35 @@
 {
-  "name": "Protocolo de Cierre de Rampa - Condiciones Meteorologicas Severas",
+  "name": "Condiciones Meteorologicas",
   "nodes": [
     {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "id": "node-merge-espera-apis",
+      "name": "Esperar Datos de las 3 APIs",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1296,
+        1488
+      ]
+    },
+    {
       "parameters": {},
-      "id": "node-manual-trigger",
+      "id": "ad486a64-a169-43f2-b968-ecb82623ef7e",
       "name": "Ingesta de Reporte (Manual Trigger)",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        180,
+        192,
         480
       ]
     },
     {
       "parameters": {
-        "language": "javaScript",
         "jsCode": "const UMBRAL_RAFAGA_CIERRE_KT = 45;\nconst UMBRAL_VIENTO_SOSTENIDO_ALERTA_KT = 30;\nconst UMBRAL_VISIBILIDAD_CIERRE_M = 1500;\nconst VENTANA_MINUTOS = 45;\n\nconst data = $json;\nconst clima = data.reporte_meteorologico;\nconst vuelos = data.vuelos_programados || [];\n\nconst hayTormentaElectrica = !!clima.actividad_electrica;\nconst hayWindshear = !!clima.windshear_reportado;\nconst rafagaKt = (clima.viento && clima.viento.rafaga_kt) || 0;\nconst vientoSostenidoKt = (clima.viento && clima.viento.velocidad_kt) || 0;\nconst visibilidadM = clima.visibilidad_m || 9999;\n\nconst condicionNivel3 =\n  hayTormentaElectrica && (rafagaKt >= UMBRAL_RAFAGA_CIERRE_KT || hayWindshear);\n\nconst condicionNivel2 =\n  !condicionNivel3 &&\n  (hayTormentaElectrica || rafagaKt >= UMBRAL_RAFAGA_CIERRE_KT || visibilidadM <= UMBRAL_VISIBILIDAD_CIERRE_M);\n\nconst condicionNivel1 =\n  !condicionNivel3 && !condicionNivel2 && vientoSostenidoKt >= UMBRAL_VIENTO_SOSTENIDO_ALERTA_KT;\n\nlet riesgoNivel = 0;\nif (condicionNivel3) riesgoNivel = 3;\nelse if (condicionNivel2) riesgoNivel = 2;\nelse if (condicionNivel1) riesgoNivel = 1;\n\nconst ahora = new Date(clima.hora_reporte_utc);\n\nconst vuelosAfectados = vuelos\n  .map((vuelo) => {\n    const horaVuelo = new Date(vuelo.hora_programada_utc);\n    const minutosHastaVuelo = Math.round((horaVuelo.getTime() - ahora.getTime()) / 60000);\n    return Object.assign({}, vuelo, { minutos_hasta_operacion: minutosHastaVuelo });\n  })\n  .filter((vuelo) => vuelo.minutos_hasta_operacion >= 0 && vuelo.minutos_hasta_operacion <= VENTANA_MINUTOS);\n\nconst accionesPorNivel = {\n  0: 'OPERACION_NORMAL',\n  1: 'MONITOREO_ACTIVO',\n  2: 'ALERTA_PREPARAR_CIERRE',\n  3: 'CIERRE_RAMPA',\n};\n\n// Version sin guion bajo, solo para texto libre (Telegram): un \\\"_\\\" suelto se\n// interpreta como inicio de cursiva en Markdown y Telegram rechaza el mensaje\n// entero si no encuentra el cierre (\\\"can't find end of the entity\\\").\nconst accionesPorNivelLegible = {\n  0: 'Operacion Normal',\n  1: 'Monitoreo Activo',\n  2: 'Alerta - Preparar Cierre',\n  3: 'Cierre de Rampa',\n};\n\nconst accionRequerida = accionesPorNivel[riesgoNivel];\nconst accionRequeridaLegible = accionesPorNivelLegible[riesgoNivel];\n\nconst resumen =\n  `Nivel de riesgo ${riesgoNivel} (${accionRequeridaLegible}) en ${clima.estacion}. ` +\n  `Viento ${vientoSostenidoKt}kt, rafagas ${rafagaKt}kt. ` +\n  `Tormenta electrica: ${hayTormentaElectrica ? 'SI' : 'NO'}. ` +\n  `Windshear: ${hayWindshear ? 'SI' : 'NO'}. ` +\n  `${vuelosAfectados.length} vuelo(s) afectado(s) en los proximos ${VENTANA_MINUTOS} minutos.`;\n\nreturn [\n  {\n    json: {\n      riesgo_nivel: riesgoNivel,\n      riesgo_nivel_3: riesgoNivel === 3,\n      accion_requerida: accionRequerida,\n      resumen,\n      cantidad_vuelos_afectados: vuelosAfectados.length,\n      vuelos_afectados: vuelosAfectados,\n      reporte_meteorologico: clima,\n    },\n  },\n];"
       },
-      "id": "node-code-evaluar",
+      "id": "859e11ed-0065-4860-9893-b0d265ea6796",
       "name": "Evaluar Riesgo Meteorologico",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -28,7 +40,6 @@
     },
     {
       "parameters": {
-        "mode": "rules",
         "rules": {
           "values": [
             {
@@ -36,7 +47,8 @@
                 "options": {
                   "caseSensitive": true,
                   "leftValue": "",
-                  "typeValidation": "strict"
+                  "typeValidation": "strict",
+                  "version": 1
                 },
                 "conditions": [
                   {
@@ -59,7 +71,8 @@
                 "options": {
                   "caseSensitive": true,
                   "leftValue": "",
-                  "typeValidation": "strict"
+                  "typeValidation": "strict",
+                  "version": 1
                 },
                 "conditions": [
                   {
@@ -84,56 +97,62 @@
           "renameFallbackOutput": "Nivel 0/1 - Normal"
         }
       },
-      "id": "node-switch-riesgo",
+      "id": "20479659-e7f2-482c-bffb-35e8a23b9cb4",
       "name": "Switch Nivel de Riesgo",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3,
       "position": [
-        620,
+        624,
         480
       ]
     },
     {
       "parameters": {
-        "resource": "message",
-        "operation": "sendMessage",
         "chatId": "7726117557",
         "text": "={{ '🚨 CIERRE DE RAMPA - ' + $json.reporte_meteorologico.estacion + '\\n\\n' + $json.resumen + '\\n\\nVuelos afectados:\\n' + $json.vuelos_afectados.map(v => '- ' + v.vuelo + ' (' + v.tipo_operacion + ', posicion ' + v.posicion_rampa + ', en ' + v.minutos_hasta_operacion + ' min)').join('\\n') }}",
         "additionalFields": {
           "appendAttribution": false
         }
       },
-      "id": "node-telegram-pista",
+      "id": "e7afd43f-9862-499c-b3df-ac0f06ac7865",
       "name": "Notificar Cierre a Operaciones de Pista",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        900,
-        260
-      ]
+        880,
+        208
+      ],
+      "webhookId": "3891ab1c-d5bd-4bd7-a8bb-7b424f0e98b9",
+      "credentials": {
+        "telegramApi": {
+          "id": "YlPaHlswUd7aLC84",
+          "name": "Telegram account 3"
+        }
+      }
     },
     {
       "parameters": {
-        "resource": "card",
-        "operation": "create",
         "listId": "6a93bcfaddd4417c88e7cf7a",
         "name": "={{ 'Asegurar equipos de rampa - Nivel ' + $json.riesgo_nivel + ' - ' + $json.reporte_meteorologico.estacion }}",
-        "additionalFields": {
-          "description": "={{ $json.resumen + '\\n\\nVuelos en plataforma durante la ventana de riesgo:\\n' + $json.vuelos_afectados.map(v => '- ' + v.vuelo + ' (posicion ' + v.posicion_rampa + ')').join('\\n') }}"
-        }
+        "additionalFields": {}
       },
-      "id": "node-trello-mantenimiento",
+      "id": "4b35fd82-3806-4929-945e-c34b588400af",
       "name": "Crear Ticket de Mantenimiento",
       "type": "n8n-nodes-base.trello",
       "typeVersion": 1,
       "position": [
-        900,
+        960,
         400
-      ]
+      ],
+      "credentials": {
+        "trelloApi": {
+          "id": "AwCQUI966Mb35ncJ",
+          "name": "Trello account"
+        }
+      }
     },
     {
       "parameters": {
-        "language": "javaScript",
         "jsCode": "// Nodo Code: \"Construir HTML del Reporte\"\n// Genera el HTML (+ footer de paginacion) del reporte de incidente con\n// identidad visual propia (Aeropuertos Argentina 2000) para convertirlo a PDF\n// en el nodo siguiente via Gotenberg. Reemplaza al viejo \"Registrar Auditoria\"\n// en Google Sheets: ahora el registro del incidente es este PDF.\n\nconst data = $json;\nconst clima = data.reporte_meteorologico || {};\nconst vuelos = data.vuelos_afectados || [];\nconst nivel = data.riesgo_nivel;\n\n// Paleta propia (petroleo + dorado + terracota), NO colores semanticos de\n// framework: los dos niveles de severidad son variaciones tonales de la MISMA\n// paleta calida, no un semaforo azul/amarillo/rojo generico.\nconst BRAND = '#0B3B39';\nconst ACCENT_NIVEL2 = '#C08A2E';\nconst ACCENT_NIVEL2_SUAVE = '#F5EBD8';\nconst ACCENT_NIVEL3 = '#8C3A2E';\nconst ACCENT_NIVEL3_SUAVE = '#F2E2DE';\n\nconst colorNivel = nivel === 3 ? ACCENT_NIVEL3 : nivel === 2 ? ACCENT_NIVEL2 : BRAND;\nconst colorNivelSuave = nivel === 3 ? ACCENT_NIVEL3_SUAVE : nivel === 2 ? ACCENT_NIVEL2_SUAVE : '#EAEFEE';\nconst etiquetasNivel = { 2: 'Alerta - Preparar Cierre', 3: 'Cierre de Rampa' };\nconst etiquetaNivel = etiquetasNivel[nivel] || 'Reporte Operacional';\nconst generadoEl = new Date().toISOString();\nconst referencia = 'RPT-' + Date.now();\n\n// Hash corto y determinista del contenido, solo para que el pie tecnico se\n// sienta como el checksum de un sistema real (no es criptografico).\nfunction hashCorto(texto) {\n  let h = 5381;\n  for (let i = 0; i < texto.length; i++) h = (h * 33) ^ texto.charCodeAt(i);\n  return (h >>> 0).toString(16).toUpperCase().padStart(8, '0');\n}\nconst hashReporte = hashCorto(referencia + (data.resumen || '') + generadoEl);\n\n// Isotipo: no es un icono generico de libreria (flecha/pin) sino un motivo de\n// radar de control de trafico aereo (anillos de barrido + blip), a juego con\n// la paleta propia.\nconst svgRadar =\n  '<svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">' +\n  '<circle cx=\"12\" cy=\"12\" r=\"9.5\" stroke=\"white\" stroke-opacity=\"0.22\" stroke-width=\"1\"/>' +\n  '<circle cx=\"12\" cy=\"12\" r=\"6.2\" stroke=\"white\" stroke-opacity=\"0.4\" stroke-width=\"1\"/>' +\n  '<circle cx=\"12\" cy=\"12\" r=\"3\" stroke=\"white\" stroke-opacity=\"0.65\" stroke-width=\"1\"/>' +\n  `<line x1=\"12\" y1=\"12\" x2=\"19\" y2=\"6\" stroke=\"${ACCENT_NIVEL2}\" stroke-width=\"1.4\" stroke-linecap=\"round\"/>` +\n  `<circle cx=\"12\" cy=\"12\" r=\"1.3\" fill=\"${ACCENT_NIVEL2}\"/>` +\n  '</svg>';\n\nconst filasVuelos = vuelos.length\n  ? vuelos\n      .map(\n        (v) => `\n    <tr>\n      <td class=\"flight\">${v.vuelo || ''}</td>\n      <td>${v.aerolinea || ''}</td>\n      <td>${v.tipo_operacion || ''}</td>\n      <td>${v.posicion_rampa || ''}</td>\n      <td class=\"num\">${v.minutos_hasta_operacion != null ? v.minutos_hasta_operacion + ' min' : '-'}</td>\n    </tr>`,\n      )\n      .join('')\n  : '<tr><td colspan=\"5\" style=\"text-align:center;color:#74827D;padding:24px;\">Sin vuelos afectados en la ventana evaluada</td></tr>';\n\nconst html = `<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n<meta charset=\"utf-8\" />\n<link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap\">\n<style>\n  :root {\n    --brand: ${BRAND};\n    --ink: #16221F;\n    --ink-soft: #3F4D49;\n    --muted: #74827D;\n    --line: #E1E6E3;\n    --surface: #F6F7F5;\n    --accent: ${colorNivel};\n    --accent-soft: ${colorNivelSuave};\n  }\n  * { box-sizing: border-box; }\n  html, body { margin: 0; padding: 0; }\n  body {\n    font-family: 'IBM Plex Sans', Georgia, 'Segoe UI', sans-serif;\n    color: var(--ink);\n    font-size: 13.5px;\n    line-height: 1.5;\n    -webkit-font-smoothing: antialiased;\n    position: relative;\n  }\n  .watermark {\n    position: fixed;\n    top: 46%;\n    left: 50%;\n    transform: translate(-50%, -50%) rotate(-24deg);\n    font-size: 64px;\n    font-weight: 700;\n    letter-spacing: 0.06em;\n    color: var(--brand);\n    opacity: 0.035;\n    white-space: nowrap;\n    z-index: 0;\n  }\n  .page { position: relative; z-index: 1; padding: 40px 48px 28px; }\n\n  .masthead { display: flex; align-items: center; justify-content: space-between; padding-bottom: 18px; border-bottom: 1px solid var(--line); }\n  .brand { display: flex; align-items: center; gap: 11px; }\n  .brand-mark { width: 38px; height: 38px; border-radius: 10px; background: var(--brand); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }\n  .brand-name { font-size: 11px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; color: var(--brand); }\n  .brand-sub { font-size: 10px; color: var(--muted); letter-spacing: 0.03em; margin-top: 2px; }\n  .meta { text-align: right; font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 9.5px; color: var(--muted); line-height: 1.7; }\n\n  .hero { margin-top: 40px; margin-bottom: 36px; }\n  .kicker { margin: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }\n  .hero h1 { margin: 0 0 22px; font-size: 27px; font-weight: 600; letter-spacing: -0.01em; color: var(--brand); max-width: 480px; }\n  .severity-strip { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-radius: 10px; background: var(--accent-soft); }\n  .severity-strip .label { display: flex; align-items: center; gap: 9px; font-size: 13.5px; font-weight: 600; color: var(--accent); }\n  .severity-strip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }\n  .severity-strip .rule { flex: 1; height: 1px; background: var(--accent); opacity: 0.25; margin: 0 18px; }\n  .severity-strip .n { font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 11px; color: var(--accent); opacity: 0.85; }\n\n  .summary { margin-top: 18px; font-size: 13px; color: var(--ink-soft); line-height: 1.65; max-width: 620px; }\n\n  .grid { margin-top: 26px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }\n  .card { border: 1px solid var(--line); border-radius: 8px; padding: 13px 15px; }\n  .card h3 { margin: 0 0 9px; font-size: 9.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }\n  .stat-row { display: flex; align-items: baseline; justify-content: space-between; padding: 3px 0; }\n  .stat-label { font-size: 11.5px; color: var(--muted); }\n  .stat-value { font-size: 12.5px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }\n  .stat-value.lg { font-size: 16px; font-weight: 600; color: var(--brand); }\n\n  .terminal { margin-top: 10px; border-radius: 8px; overflow: hidden; border: 1px solid #0A2A28; }\n  .terminal-bar { display: flex; align-items: center; justify-content: space-between; background: #0A2A28; padding: 7px 12px; }\n  .terminal-bar .dots { display: flex; gap: 4px; }\n  .terminal-bar .dots span { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.25); }\n  .terminal-bar .label { font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 9px; letter-spacing: 0.1em; color: rgba(255,255,255,0.5); text-transform: uppercase; }\n  .terminal-body { padding: 12px 14px; background: var(--brand); color: #CFE3E0; font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 10.5px; letter-spacing: 0.01em; word-break: break-all; }\n\n  .section-label { margin: 30px 0 2px; font-size: 9.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }\n  table { width: 100%; border-collapse: collapse; margin-top: 10px; border-top: 2px solid var(--brand); }\n  thead th { text-align: left; font-size: 9.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 8px 10px 6px; }\n  thead th:last-child { text-align: right; }\n  tbody td { padding: 8px 10px; font-size: 12.5px; color: var(--ink-soft); border-bottom: 1px solid var(--surface); }\n  tbody tr:last-child td { border-bottom: none; }\n  td.num { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 500; }\n  td.flight { font-weight: 600; color: var(--brand); }\n\n  .tech-footer { margin-top: 44px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 9px; color: var(--muted); letter-spacing: 0.02em; }\n</style>\n</head>\n<body>\n  <div class=\"watermark\">AA2000 &middot; OPERACIONAL</div>\n  <div class=\"page\">\n    <div class=\"masthead\">\n      <div class=\"brand\">\n        <div class=\"brand-mark\">${svgRadar}</div>\n        <div>\n          <div class=\"brand-name\">Aeropuertos Argentina 2000</div>\n          <div class=\"brand-sub\">Operaciones de Rampa</div>\n        </div>\n      </div>\n      <div class=\"meta\">REF ${referencia}<br/>${generadoEl}</div>\n    </div>\n\n    <div class=\"hero\">\n      <p class=\"kicker\">Protocolo de Cierre de Rampa</p>\n      <h1>Reporte de Incidente Operacional</h1>\n      <div class=\"severity-strip\">\n        <span class=\"label\"><span class=\"dot\"></span>Nivel ${nivel} &middot; ${etiquetaNivel}</span>\n        <span class=\"rule\"></span>\n        <span class=\"n\">${clima.estacion || '-'}</span>\n      </div>\n      <div class=\"summary\">${data.resumen || ''}</div>\n    </div>\n\n    <div class=\"grid\">\n      <div class=\"card\">\n        <h3>Estacion</h3>\n        <div class=\"stat-row\"><span class=\"stat-label\">Codigo</span><span class=\"stat-value lg\">${clima.estacion || '-'}</span></div>\n        <div class=\"stat-row\"><span class=\"stat-label\">Nombre</span><span class=\"stat-value\">${clima.nombre_estacion || '-'}</span></div>\n        <div class=\"stat-row\"><span class=\"stat-label\">Hora de reporte (UTC)</span><span class=\"stat-value\">${clima.hora_reporte_utc || '-'}</span></div>\n      </div>\n      <div class=\"card\">\n        <h3>Condiciones de Viento</h3>\n        <div class=\"stat-row\"><span class=\"stat-label\">Sostenido</span><span class=\"stat-value\">${(clima.viento && clima.viento.velocidad_kt) || 0} kt</span></div>\n        <div class=\"stat-row\"><span class=\"stat-label\">Rafaga</span><span class=\"stat-value\">${(clima.viento && clima.viento.rafaga_kt) || 0} kt</span></div>\n        <div class=\"stat-row\"><span class=\"stat-label\">Visibilidad</span><span class=\"stat-value\">${clima.visibilidad_m || '-'} m</span></div>\n        <div class=\"stat-row\"><span class=\"stat-label\">Tormenta / Windshear</span><span class=\"stat-value\">${clima.actividad_electrica ? 'Si' : 'No'} / ${clima.windshear_reportado ? 'Si' : 'No'}</span></div>\n      </div>\n    </div>\n\n    <div class=\"terminal\">\n      <div class=\"terminal-bar\">\n        <span class=\"label\">Datos Raw &middot; METAR</span>\n        <span class=\"dots\"><span></span><span></span><span></span></span>\n      </div>\n      <div class=\"terminal-body\">${clima.metar_crudo || 'METAR no disponible'}</div>\n    </div>\n\n    <p class=\"section-label\">Vuelos Afectados (${vuelos.length})</p>\n    <table>\n      <thead><tr><th>Vuelo</th><th>Aerolinea</th><th>Operacion</th><th>Posicion</th><th>Ventana</th></tr></thead>\n      <tbody>${filasVuelos}</tbody>\n    </table>\n\n    <div class=\"tech-footer\">\n      <span>Sistema de Triage Operacional &middot; v2.4.0</span>\n      <span>SHA ${hashReporte}</span>\n    </div>\n  </div>\n</body>\n</html>`;\n\nconst footerHtml = `<!DOCTYPE html>\n<html>\n<head>\n<style>\n  * { margin: 0; padding: 0; box-sizing: border-box; }\n  body { width: 100%; font-family: Consolas, 'Liberation Mono', Menlo, monospace; font-size: 8px; color: #74827D; }\n  table { width: 100%; border-collapse: collapse; }\n  td { padding: 0 48px; white-space: nowrap; }\n  td.right { text-align: right; }\n</style>\n</head>\n<body>\n  <table><tr>\n    <td>SISTEMA DE TRIAGE OPERACIONAL &middot; AA2000</td>\n    <td class=\"right\"><span class=\"pageNumber\"></span> / <span class=\"totalPages\"></span></td>\n  </tr></table>\n</body>\n</html>`;\n\nconst binaryHtml = await this.helpers.prepareBinaryData(Buffer.from(html, 'utf-8'), 'index.html', 'text/html');\nconst binaryFooter = await this.helpers.prepareBinaryData(Buffer.from(footerHtml, 'utf-8'), 'footer.html', 'text/html');\n\nreturn [{ json: data, binary: { data: binaryHtml, footer: binaryFooter } }];\n"
       },
       "id": "node-code-construir-html",
@@ -141,8 +160,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        900,
-        620
+        1040,
+        608
       ]
     },
     {
@@ -188,8 +207,7 @@
         "options": {
           "response": {
             "response": {
-              "responseFormat": "file",
-              "outputPropertyName": "data"
+              "responseFormat": "file"
             }
           }
         }
@@ -199,39 +217,42 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1120,
-        620
+        1264,
+        608
       ]
     },
     {
       "parameters": {
-        "fromEmail": "tomicarrio73@gmail.com",
+        "fromEmail": "facuutn73@gmail.com",
         "toEmail": "tomicarrio73@gmail.com",
         "subject": "={{ 'ALERTA OPERACIONAL - Cierre de Rampa Nivel ' + $json.riesgo_nivel + ' - ' + $json.reporte_meteorologico.estacion }}",
-        "text": "={{ $json.resumen + '\\n\\nMETAR: ' + $json.reporte_meteorologico.metar_crudo + '\\n\\nVuelos afectados: ' + $json.cantidad_vuelos_afectados + '\\n\\nSe adjunta el reporte completo en PDF.' }}",
         "options": {
           "attachments": "data"
         }
       },
-      "id": "node-gmail-terminal",
+      "id": "99321fe8-4144-4fdc-8a75-cc409b1b53cc",
       "name": "Enviar Alerta a Terminal",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        1560,
-        540
-      ]
+        1728,
+        512
+      ],
+      "webhookId": "e0af3c05-3f0b-42f4-9acc-c33a9a8e7405",
+      "credentials": {
+        "smtp": {
+          "id": "wuFeuNmwiWSXVeUV",
+          "name": "SMTP account"
+        }
+      }
     },
     {
       "parameters": {
-        "resource": "message",
         "operation": "sendDocument",
         "chatId": "7726117557",
         "binaryData": true,
-        "binaryPropertyName": "data",
         "additionalFields": {
-          "caption": "={{ 'Reporte de Incidente - Nivel ' + $json.riesgo_nivel + ' - ' + $json.reporte_meteorologico.estacion }}",
-          "appendAttribution": false
+          "caption": "={{ 'Reporte de Incidente - Nivel ' + $json.riesgo_nivel + ' - ' + $json.reporte_meteorologico.estacion }}"
         }
       },
       "id": "node-telegram-pdf",
@@ -239,9 +260,10 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        1560,
-        700
+        1728,
+        688
       ],
+      "webhookId": "d4d6225e-4bda-42de-91e8-faa0f5c4142f",
       "credentials": {
         "telegramApi": {
           "id": "YlPaHlswUd7aLC84",
@@ -251,39 +273,369 @@
     },
     {
       "parameters": {},
-      "id": "node-noop-normal",
+      "id": "44fc5baf-be10-436a-bfda-be3c0bd934e0",
       "name": "Sin Accion Requerida",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        900,
-        820
+        1120,
+        800
       ]
     },
     {
       "parameters": {
-        "rule": {
-          "interval": [
+        "jsCode": "// Gate de rate-limiting: no queremos golpear OpenWeatherMap/AviationStack cada\n// 10 segundos (los planes gratuitos no lo soportan). El Schedule Trigger corre\n// cada 10s para que el MOTOR DE TRIAGE reaccione rapido sobre datos ya conocidos,\n// pero las llamadas HTTP reales solo se disparan cada `refresco_apis_min` minutos,\n// usando workflow static data como cache entre ejecuciones. Se cachean los DOS\n// formatos (Triage y Cierre de Rampa) para que ambos sistemas fusionados puedan\n// reusar el mismo dato en vivo sin volver a llamar a las APIs externas.\n\nconst data = $getWorkflowStaticData('global');\nconst config = $('Configuracion').first().json;\nconst refrescoMs = (config.refresco_apis_min || 5) * 60000;\nconst ahora = Date.now();\nconst ultimaConsulta = data.ultimaConsultaApisTimestamp || 0;\nconst necesitaRefresco = (ahora - ultimaConsulta) >= refrescoMs;\n\nreturn [\n  {\n    json: {\n      necesita_refresco: necesitaRefresco,\n      meteorologia_cacheada: data.meteorologiaCacheada || null,\n      vuelos_activos_cacheados: data.vuelosActivosCacheados || null,\n      reporte_meteorologico_cacheado: data.reporteMeteorologicoCacheado || null,\n      vuelos_programados_cacheados: data.vuelosProgramadosCacheados || null,\n    },\n  },\n];"
+      },
+      "id": "node-code-verificar-refresco",
+      "name": "Verificar Necesidad de Refresco",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        1472
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
             {
-              "field": "seconds",
-              "secondsInterval": 10
+              "id": "ref1",
+              "leftValue": "={{ $json.necesita_refresco }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-necesita-refresco",
+      "name": "Necesita Refresco de APIs?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        832,
+        1472
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openweathermap.org/data/2.5/weather",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "lat",
+              "value": "={{ $('Configuracion').first().json.aeropuerto_lat }}"
+            },
+            {
+              "name": "lon",
+              "value": "={{ $('Configuracion').first().json.aeropuerto_lon }}"
+            },
+            {
+              "name": "appid",
+              "value": "={{ $('Configuracion').first().json.openweather_api_key }}"
+            },
+            {
+              "name": "units",
+              "value": "metric"
             }
           ]
-        }
+        },
+        "options": {}
       },
-      "id": "node-schedule-trigger",
-      "name": "Disparador Programado (Cada 10s)",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
+      "id": "node-http-clima",
+      "name": "Consultar Clima Real (OpenWeatherMap)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        180,
-        1300
+        1056,
+        1344
       ]
     },
     {
       "parameters": {
-        "mode": "manual",
-        "duplicateItem": false,
+        "url": "http://api.aviationstack.com/v1/flights",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "access_key",
+              "value": "={{ $('Configuracion').first().json.aviationstack_api_key }}"
+            },
+            {
+              "name": "arr_iata",
+              "value": "={{ $('Configuracion').first().json.aeropuerto_iata }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-http-vuelos-arribos",
+      "name": "Consultar Vuelos Arribos Real (AviationStack)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1056,
+        1536
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://api.aviationstack.com/v1/flights",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "access_key",
+              "value": "={{ $('Configuracion').first().json.aviationstack_api_key }}"
+            },
+            {
+              "name": "dep_iata",
+              "value": "={{ $('Configuracion').first().json.aeropuerto_iata }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-http-vuelos-salidas",
+      "name": "Consultar Vuelos Salidas Real (AviationStack)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1056,
+        1728
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Capa de normalizacion (Anti-Corruption Layer): traduce las respuestas crudas\n// de OpenWeatherMap y AviationStack a DOS contratos internos que comparten el\n// mismo dato en vivo: el formato del motor de Triage (meteorologia + vuelos_activos)\n// y el formato del motor original de Cierre de Rampa por Tormenta\n// (reporte_meteorologico + vuelos_programados). Asi los dos sistemas construidos\n// en este workflow quedan fusionados sobre una unica ingesta en tiempo real.\n\nconst clima = $('Consultar Clima Real (OpenWeatherMap)').first().json;\nconst arribos = ($('Consultar Vuelos Arribos Real (AviationStack)').first().json.data) || [];\nconst salidas = ($('Consultar Vuelos Salidas Real (AviationStack)').first().json.data) || [];\nconst config = $('Configuracion').first().json;\n\n// --- Normalizar meteorologia (formato Triage) ---\n// Codigos 200-232 de OpenWeatherMap son el grupo \"Thunderstorm\".\nconst CODIGOS_TORMENTA_OWM = [200, 201, 202, 210, 211, 212, 221, 230, 231, 232];\nconst vientoMps = (clima.wind && clima.wind.speed) || 0;\nconst rafagaMps = (clima.wind && clima.wind.gust) || vientoMps;\nconst tieneTormenta = Array.isArray(clima.weather) && clima.weather.some((w) => CODIGOS_TORMENTA_OWM.includes(w.id));\nconst rafagaKt = Math.round(rafagaMps * 1.94384);\nconst vientoKt = Math.round(vientoMps * 1.94384);\n\nconst meteorologia = {\n  tipo_alerta: tieneTormenta ? 'Tormenta Electrica Severa' : 'Sin alerta critica',\n  rafagas_viento_kt: rafagaKt,\n  actividad_electrica: tieneTormenta,\n};\n\n// --- Mismo dato, en el formato que espera \"Evaluar Riesgo Meteorologico\" (el\n// nodo original del Protocolo de Cierre de Rampa). AVISO: OpenWeatherMap no\n// reporta windshear ni METAR crudo; ninguna API publica y gratuita expone esos\n// dos datos, por eso se documentan explicitamente como no disponibles.\nconst reporte_meteorologico = {\n  estacion: config.aeropuerto_iata,\n  nombre_estacion: clima.name || config.aeropuerto_iata,\n  hora_reporte_utc: new Date((clima.dt || Math.floor(Date.now() / 1000)) * 1000).toISOString(),\n  metar_crudo: (Array.isArray(clima.weather) && clima.weather[0]) ? clima.weather[0].description : 'No disponible (fuera de alcance de OpenWeatherMap)',\n  viento: {\n    direccion_grados: (clima.wind && clima.wind.deg) || 0,\n    velocidad_kt: vientoKt,\n    rafaga_kt: rafagaKt,\n  },\n  visibilidad_m: typeof clima.visibility === 'number' ? clima.visibility : 9999,\n  fenomenos: Array.isArray(clima.weather) ? clima.weather.map((w) => w.main) : [],\n  actividad_electrica: tieneTormenta,\n  windshear_reportado: false,\n};\n\n// --- Normalizar vuelos en aproximacion (Rama A del Triage) ---\n// No se estima combustible remanente: ninguna API publica expone ese dato\n// real (es propietario ACARS/OOOI de cada aerolinea), asi que no se inventa\n// un numero para tomar decisiones automaticas sobre eso.\nconst vuelosEnAproximacion = arribos\n  .filter((v) => v.flight_status === 'active')\n  .map((v) => ({\n    id_vuelo: (v.flight && v.flight.iata) || 'DESCONOCIDO',\n    aerolinea: (v.airline && v.airline.name) || 'Desconocida',\n    tipo_aeronave: (v.aircraft && v.aircraft.iata) || 'No informado',\n    estado_operativo: 'en_aproximacion',\n    hora_programada_original: (v.arrival && (v.arrival.estimated || v.arrival.scheduled)) || null,\n  }));\n\n// --- Normalizar vuelos en tierra (Rama B del Triage) ---\nconst vuelosEnTierra = salidas\n  .filter((v) => v.flight_status === 'scheduled')\n  .map((v) => {\n    const scheduled = v.departure && v.departure.scheduled;\n    const minutosParaSalida = scheduled ? Math.round((new Date(scheduled).getTime() - Date.now()) / 60000) : 999;\n    return {\n      id_vuelo: (v.flight && v.flight.iata) || 'DESCONOCIDO',\n      aerolinea: (v.airline && v.airline.name) || 'Desconocida',\n      tipo_aeronave: (v.aircraft && v.aircraft.iata) || 'No informado',\n      estado_operativo: minutosParaSalida <= 20 ? 'listo_para_pushback' : 'embarcando',\n      hora_programada_original: scheduled || null,\n    };\n  });\n\nconst vuelosActivos = vuelosEnAproximacion.concat(vuelosEnTierra);\n\n// --- Mismo listado, en el formato que espera \"Evaluar Riesgo Meteorologico\" ---\nconst vuelos_programados = vuelosActivos.map((v) => ({\n  vuelo: v.id_vuelo,\n  aerolinea: v.aerolinea,\n  aeronave: v.tipo_aeronave,\n  matricula: 'No informado',\n  tipo_operacion: v.estado_operativo === 'en_aproximacion' ? 'aterrizaje' : 'despegue',\n  origen: v.estado_operativo === 'en_aproximacion' ? 'N/D' : config.aeropuerto_iata,\n  destino: v.estado_operativo === 'en_aproximacion' ? config.aeropuerto_iata : 'N/D',\n  hora_programada_utc: v.hora_programada_original,\n  posicion_rampa: 'N/D',\n  estado: v.estado_operativo,\n}));\n\n// Cachear TODO (los dos formatos) para las ejecuciones (cada 10s) que no\n// necesiten volver a golpear las APIs externas.\nconst data = $getWorkflowStaticData('global');\ndata.ultimaConsultaApisTimestamp = Date.now();\ndata.meteorologiaCacheada = meteorologia;\ndata.vuelosActivosCacheados = vuelosActivos;\ndata.reporteMeteorologicoCacheado = reporte_meteorologico;\ndata.vuelosProgramadosCacheados = vuelos_programados;\n\nreturn [{ json: { meteorologia, vuelos_activos: vuelosActivos, reporte_meteorologico, vuelos_programados } }];"
+      },
+      "id": "node-code-normalizar",
+      "name": "Normalizar Datos de APIs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        1488
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cache = $json;\nreturn [\n  {\n    json: {\n      meteorologia: cache.meteorologia_cacheada,\n      vuelos_activos: cache.vuelos_activos_cacheados,\n      reporte_meteorologico: cache.reporte_meteorologico_cacheado,\n      vuelos_programados: cache.vuelos_programados_cacheados,\n    },\n  },\n];"
+      },
+      "id": "node-code-usar-cache",
+      "name": "Usar Datos en Cache",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        1776
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "vuelos_activos",
+        "options": {}
+      },
+      "id": "49c5859b-2744-4c44-97db-82a82559cdbb",
+      "name": "Desarmar Vuelos Activos",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 3,
+      "position": [
+        1712,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "t1",
+                    "leftValue": "={{ $json.estado_operativo }}",
+                    "rightValue": "en_aproximacion",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Rama A - En Aproximacion"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Rama B - En Tierra"
+        }
+      },
+      "id": "30e96f83-3761-4a53-b95e-c8d28e415653",
+      "name": "Switch Triage por Estado",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1936,
+        1472
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const DEMORA_ESTIMADA_MINUTOS = 90;\n\nconst vuelo = $json;\nconst etdOriginal = new Date(vuelo.hora_programada_original);\nconst nuevoEtd = new Date(etdOriginal.getTime() + DEMORA_ESTIMADA_MINUTOS * 60000);\n\nreturn [\n  {\n    json: {\n      id_vuelo: vuelo.id_vuelo,\n      aerolinea: vuelo.aerolinea,\n      estado_operativo: vuelo.estado_operativo,\n      hora_programada_original: vuelo.hora_programada_original,\n      demora_aplicada_minutos: DEMORA_ESTIMADA_MINUTOS,\n      nuevo_ETD_estimado: nuevoEtd.toISOString(),\n    },\n  },\n];"
+      },
+      "id": "0f2476a1-ff19-4cfd-a7e8-9dd423393934",
+      "name": "Calcular Nuevo ETD",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        1568
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const estacion = ($json.reporte_meteorologico && $json.reporte_meteorologico.estacion) || 'INCIDENTE';\nconst fecha = new Date().toISOString().slice(0, 10);\nconst nombreArchivo = `Reporte Riesgos - ${estacion} - ${fecha}.pdf`;\n\nreturn {\n  json: $json,\n  binary: {\n    data: {\n      ...$binary.data,\n      fileName: nombreArchivo,\n      mimeType: 'application/pdf',\n    },\n  },\n};"
+      },
+      "id": "node-code-nombrar-pdf",
+      "name": "Nombrar Archivo PDF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1488,
+        608
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "node-noop-aproximacion",
+      "name": "Vuelos en Aproximacion (Sin Accion Automatica)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        1344
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Llama a Ollama (IA local) UNA vez por incidente, en serie (await en un for),\n// para no saturar el unico slot de inferencia del contenedor (VM sin GPU, 2 vCPU).\n// Si una llamada falla o tarda demas, ese incidente cae a un valor por defecto\n// seguro (pista_cerrada:false) en vez de abortar toda la ejecucion.\n\nconst SYSTEM_PROMPT = \"Sos un sistema experto en extraccion de datos aeronauticos (NOTAM). Tu unica tarea es leer el texto crudo de un NOTAM y devolver EXCLUSIVAMENTE un objeto JSON valido, sin texto adicional, sin explicaciones, sin markdown, sin backticks.\\n\\nEsquema exacto de salida (todas las claves son obligatorias):\\n{\\n  \\\"aeropuerto_afectado\\\": string (codigo ICAO de 4 letras, o \\\"DESCONOCIDO\\\" si no se puede determinar),\\n  \\\"pista_afectada\\\": string (ej. \\\"11/29\\\", o \\\"N/D\\\" si no aplica o no se menciona),\\n  \\\"motivo\\\": string (resumen breve en espanol del contenido del segmento E) del NOTAM, en pocas palabras, describiendo la causa real: p. ej. \\\"cierre por tormenta y windshear\\\", \\\"niebla, visibilidad bajo minimos\\\", \\\"luces de calle de rodaje fuera de servicio por mantenimiento\\\"),\\n  \\\"pista_cerrada\\\": boolean (true unicamente si el segmento E) indica cierre total de una pista, ej. contiene \\\"RWY ... CLSD\\\"; false si es una restriccion parcial, mantenimiento de taxiway/luces, o no aplica),\\n  \\\"severidad\\\": \\\"BAJA\\\" | \\\"MEDIA\\\" | \\\"ALTA\\\"\\n}\\n\\nReglas:\\n- El codigo ICAO del aeropuerto afectado esta casi siempre en el segmento Q), inmediatamente despues de \\\"Q)\\\". Ejemplo: en \\\"Q)SAEZ/QMRLC/...\\\" el aeropuerto es SAEZ. Usa ese codigo para \\\"aeropuerto_afectado\\\".\\n- En \\\"pista_afectada\\\" escribi solo el numero de pista (ej \\\"11/29\\\"), sin la palabra RWY. Si no hay pista mencionada usa \\\"N/D\\\".\\n- No inventes datos que no esten en el texto: usa \\\"DESCONOCIDO\\\" o \\\"N/D\\\" cuando corresponda.\\n- Tu respuesta debe empezar con \\\"{\\\" y terminar con \\\"}\\\". Nada de texto antes o despues.\";\n\nconst items = $input.all();\nconst resultados = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n  try {\n    const respuesta = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'http://ollama:11434/api/chat',\n      body: {\n        model: 'qwen2.5:1.5b-instruct-q4_0',\n        stream: false,\n        format: 'json',\n        messages: [\n          { role: 'system', content: SYSTEM_PROMPT },\n          { role: 'user', content: item.json.notam_crudo },\n        ],\n      },\n      json: true,\n      timeout: 60000,\n    });\n    resultados.push({ json: respuesta, pairedItem: i });\n  } catch (error) {\n    resultados.push({\n      json: {\n        message: { role: 'assistant', content: '{}' },\n        error: 'Fallo la llamada a Ollama: ' + error.message,\n      },\n      pairedItem: i,\n    });\n  }\n}\n\nreturn resultados;"
+      },
+      "id": "node-openai-notam",
+      "name": "Extraer NOTAM con IA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function haversineKm(lat1, lon1, lat2, lon2) {\n  const R = 6371;\n  const toRad = (deg) => (deg * Math.PI) / 180;\n  const dLat = toRad(lat2 - lat1);\n  const dLon = toRad(lon2 - lon1);\n  const a =\n    Math.sin(dLat / 2) ** 2 +\n    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;\n  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));\n  return R * c;\n}\n\nconst MARGEN_SEGURIDAD_KM = 50;\n\n// El nodo de IA reemplaza $json por su propia respuesta -- el incidente\n// original (con tormenta_activa y vuelos_en_ruta) se recupera referenciando\n// el trigger directamente. Se usa `.item` (no `.first()`) para que, con 17\n// incidentes pineados, cada ejecucion tome el incidente que le corresponde a\n// ESTA rama puntual, no siempre el primero del pinData.\nconst incidente = $('Ingesta de Reporte (Manual Trigger)').item.json;\nconst tormenta = incidente.tormenta_activa;\nconst vuelos = incidente.vuelos_en_ruta || [];\n\n// Respuesta cruda de la IA: la forma exacta puede variar segun la version del\n// nodo OpenAI de n8n, se prueban las variantes mas comunes antes de fallar.\nconst respuestaIA = $json;\nconst textoIA =\n  (respuestaIA.message && respuestaIA.message.content) ||\n  respuestaIA.content ||\n  respuestaIA.text ||\n  '';\n\nlet notam = {\n  aeropuerto_afectado: 'DESCONOCIDO',\n  pista_afectada: 'N/D',\n  motivo: 'No se pudo interpretar la respuesta de la IA',\n  pista_cerrada: false,\n  severidad: 'BAJA',\n};\n\ntry {\n  notam = JSON.parse(textoIA);\n} catch (e) {\n  // Se deja el valor por defecto (pista_cerrada: false): un NOTAM mal\n  // interpretado por la IA no puede, por si solo, forzar un desvio.\n}\n\nconst vuelosEvaluados = vuelos.map((vuelo) => {\n  const distanciaKm = haversineKm(vuelo.latitud, vuelo.longitud, tormenta.latitud, tormenta.longitud);\n  const alertaColision = distanciaKm <= tormenta.radio_impacto_km + MARGEN_SEGURIDAD_KM;\n  const pistaCerradaEnDestino = notam.pista_cerrada === true && vuelo.destino === notam.aeropuerto_afectado;\n  const desvioRequerido = alertaColision || pistaCerradaEnDestino;\n\n  return {\n    id_vuelo: vuelo.id_vuelo,\n    destino: vuelo.destino,\n    altitud_ft: vuelo.altitud_ft,\n    distancia_a_tormenta_km: Math.round(distanciaKm),\n    radio_impacto_km: tormenta.radio_impacto_km,\n    alerta_colision_climatica: alertaColision,\n    pista_cerrada_en_destino: pistaCerradaEnDestino,\n    notam_aeropuerto_afectado: notam.aeropuerto_afectado,\n    notam_motivo: notam.motivo,\n    notam_severidad: notam.severidad,\n    desvio_requerido: desvioRequerido,\n    accion_sugerida: desvioRequerido ? 'Desviar a aeropuerto alterno (Reroute)' : 'Continuar ruta normal',\n  };\n});\n\nreturn vuelosEvaluados.map((v) => ({ json: v }));"
+      },
+      "id": "node-code-combinar-notam-geo",
+      "name": "Combinar NOTAM y Evaluar Colision Climatica",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "desvio1",
+              "leftValue": "={{ $json.desvio_requerido }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-motor-decision",
+      "name": "Motor de Decision - Triage Final",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        880,
+        1008
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "7726117557",
+        "text": "={{ '🚨 DESVIO REQUERIDO - ' + $json.id_vuelo + '\\n\\n' + 'Destino original: ' + $json.destino + '\\nAltitud: ' + $json.altitud_ft + ' ft\\n\\n' + ($json.alerta_colision_climatica ? ('Colision climatica: SI (' + $json.distancia_a_tormenta_km + ' km de la tormenta, radio+margen ' + ($json.radio_impacto_km + 50) + ' km)\\n') : '') + ($json.pista_cerrada_en_destino ? ('Pista cerrada en destino segun NOTAM: SI (' + $json.notam_motivo + ')\\n') : '') + '\\nAccion sugerida: ' + $json.accion_sugerida }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "node-telegram-emergencia-desvio",
+      "name": "Alertar Emergencia - Desvio a Alterno",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1088,
+        960
+      ],
+      "webhookId": "4b8ae5f8-f985-4c78-811d-e3d46dac9bec",
+      "credentials": {
+        "telegramApi": {
+          "id": "YlPaHlswUd7aLC84",
+          "name": "Telegram account 3"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "node-noop-vuelo-normal",
+      "name": "Vuelo Sin Riesgo Detectado",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1088,
+        1152
+      ]
+    },
+    {
+      "parameters": {
         "assignments": {
           "assignments": [
             {
@@ -339,656 +691,36 @@
         "options": {}
       },
       "id": "node-set-configuracion",
-      "name": "Configuracion (Editar Aca)",
+      "name": "Configuracion",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        400,
-        1300
+        384,
+        1472
       ]
     },
     {
       "parameters": {
-        "language": "javaScript",
-        "jsCode": "// Gate de rate-limiting: no queremos golpear OpenWeatherMap/AviationStack cada\n// 10 segundos (los planes gratuitos no lo soportan). El Schedule Trigger corre\n// cada 10s para que el MOTOR DE TRIAGE reaccione rapido sobre datos ya conocidos,\n// pero las llamadas HTTP reales solo se disparan cada `refresco_apis_min` minutos,\n// usando workflow static data como cache entre ejecuciones. Se cachean los DOS\n// formatos (Triage y Cierre de Rampa) para que ambos sistemas fusionados puedan\n// reusar el mismo dato en vivo sin volver a llamar a las APIs externas.\n\nconst data = $getWorkflowStaticData('global');\nconst config = $('Configuracion (Editar Aca)').first().json;\nconst refrescoMs = (config.refresco_apis_min || 5) * 60000;\nconst ahora = Date.now();\nconst ultimaConsulta = data.ultimaConsultaApisTimestamp || 0;\nconst necesitaRefresco = (ahora - ultimaConsulta) >= refrescoMs;\n\nreturn [\n  {\n    json: {\n      necesita_refresco: necesitaRefresco,\n      meteorologia_cacheada: data.meteorologiaCacheada || null,\n      vuelos_activos_cacheados: data.vuelosActivosCacheados || null,\n      reporte_meteorologico_cacheado: data.reporteMeteorologicoCacheado || null,\n      vuelos_programados_cacheados: data.vuelosProgramadosCacheados || null,\n    },\n  },\n];"
-      },
-      "id": "node-code-verificar-refresco",
-      "name": "Verificar Necesidad de Refresco",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        620,
-        1300
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
+        "rule": {
+          "interval": [
             {
-              "id": "ref1",
-              "leftValue": "={{ $json.necesita_refresco }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "node-if-necesita-refresco",
-      "name": "Necesita Refresco de APIs?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        840,
-        1300
-      ]
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "https://api.openweathermap.org/data/2.5/weather",
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "lat",
-              "value": "={{ $('Configuracion (Editar Aca)').first().json.aeropuerto_lat }}"
-            },
-            {
-              "name": "lon",
-              "value": "={{ $('Configuracion (Editar Aca)').first().json.aeropuerto_lon }}"
-            },
-            {
-              "name": "appid",
-              "value": "={{ $('Configuracion (Editar Aca)').first().json.openweather_api_key }}"
-            },
-            {
-              "name": "units",
-              "value": "metric"
+              "field": "hours",
+              "hoursInterval": 3,
+              "triggerAtMinute": 30
             }
           ]
-        },
-        "options": {}
-      },
-      "id": "node-http-clima",
-      "name": "Consultar Clima Real (OpenWeatherMap)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1060,
-        1180
-      ]
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "http://api.aviationstack.com/v1/flights",
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "access_key",
-              "value": "={{ $('Configuracion (Editar Aca)').first().json.aviationstack_api_key }}"
-            },
-            {
-              "name": "arr_iata",
-              "value": "={{ $('Configuracion (Editar Aca)').first().json.aeropuerto_iata }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "node-http-vuelos-arribos",
-      "name": "Consultar Vuelos Arribos Real (AviationStack)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1060,
-        1300
-      ]
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "http://api.aviationstack.com/v1/flights",
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "access_key",
-              "value": "={{ $('Configuracion (Editar Aca)').first().json.aviationstack_api_key }}"
-            },
-            {
-              "name": "dep_iata",
-              "value": "={{ $('Configuracion (Editar Aca)').first().json.aeropuerto_iata }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "node-http-vuelos-salidas",
-      "name": "Consultar Vuelos Salidas Real (AviationStack)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1060,
-        1420
-      ]
-    },
-    {
-      "parameters": {
-        "language": "javaScript",
-        "jsCode": "// Capa de normalizacion (Anti-Corruption Layer): traduce las respuestas crudas\n// de OpenWeatherMap y AviationStack a DOS contratos internos que comparten el\n// mismo dato en vivo: el formato del motor de Triage (meteorologia + vuelos_activos)\n// y el formato del motor original de Cierre de Rampa por Tormenta\n// (reporte_meteorologico + vuelos_programados). Asi los dos sistemas construidos\n// en este workflow quedan fusionados sobre una unica ingesta en tiempo real.\n\nconst clima = $('Consultar Clima Real (OpenWeatherMap)').first().json;\nconst arribos = ($('Consultar Vuelos Arribos Real (AviationStack)').first().json.data) || [];\nconst salidas = ($('Consultar Vuelos Salidas Real (AviationStack)').first().json.data) || [];\nconst config = $('Configuracion (Editar Aca)').first().json;\n\n// --- Normalizar meteorologia (formato Triage) ---\n// Codigos 200-232 de OpenWeatherMap son el grupo \"Thunderstorm\".\nconst CODIGOS_TORMENTA_OWM = [200, 201, 202, 210, 211, 212, 221, 230, 231, 232];\nconst vientoMps = (clima.wind && clima.wind.speed) || 0;\nconst rafagaMps = (clima.wind && clima.wind.gust) || vientoMps;\nconst tieneTormenta = Array.isArray(clima.weather) && clima.weather.some((w) => CODIGOS_TORMENTA_OWM.includes(w.id));\nconst rafagaKt = Math.round(rafagaMps * 1.94384);\nconst vientoKt = Math.round(vientoMps * 1.94384);\n\nconst meteorologia = {\n  tipo_alerta: tieneTormenta ? 'Tormenta Electrica Severa' : 'Sin alerta critica',\n  rafagas_viento_kt: rafagaKt,\n  actividad_electrica: tieneTormenta,\n};\n\n// --- Mismo dato, en el formato que espera \"Evaluar Riesgo Meteorologico\" (el\n// nodo original del Protocolo de Cierre de Rampa). AVISO: OpenWeatherMap no\n// reporta windshear ni METAR crudo; ninguna API publica y gratuita expone esos\n// dos datos, por eso se documentan explicitamente como no disponibles.\nconst reporte_meteorologico = {\n  estacion: config.aeropuerto_iata,\n  nombre_estacion: clima.name || config.aeropuerto_iata,\n  hora_reporte_utc: new Date((clima.dt || Math.floor(Date.now() / 1000)) * 1000).toISOString(),\n  metar_crudo: (Array.isArray(clima.weather) && clima.weather[0]) ? clima.weather[0].description : 'No disponible (fuera de alcance de OpenWeatherMap)',\n  viento: {\n    direccion_grados: (clima.wind && clima.wind.deg) || 0,\n    velocidad_kt: vientoKt,\n    rafaga_kt: rafagaKt,\n  },\n  visibilidad_m: typeof clima.visibility === 'number' ? clima.visibility : 9999,\n  fenomenos: Array.isArray(clima.weather) ? clima.weather.map((w) => w.main) : [],\n  actividad_electrica: tieneTormenta,\n  windshear_reportado: false,\n};\n\n// --- Normalizar vuelos en aproximacion (Rama A del Triage) ---\n// No se estima combustible remanente: ninguna API publica expone ese dato\n// real (es propietario ACARS/OOOI de cada aerolinea), asi que no se inventa\n// un numero para tomar decisiones automaticas sobre eso.\nconst vuelosEnAproximacion = arribos\n  .filter((v) => v.flight_status === 'active')\n  .map((v) => ({\n    id_vuelo: (v.flight && v.flight.iata) || 'DESCONOCIDO',\n    aerolinea: (v.airline && v.airline.name) || 'Desconocida',\n    tipo_aeronave: (v.aircraft && v.aircraft.iata) || 'No informado',\n    estado_operativo: 'en_aproximacion',\n    hora_programada_original: (v.arrival && (v.arrival.estimated || v.arrival.scheduled)) || null,\n  }));\n\n// --- Normalizar vuelos en tierra (Rama B del Triage) ---\nconst vuelosEnTierra = salidas\n  .filter((v) => v.flight_status === 'scheduled')\n  .map((v) => {\n    const scheduled = v.departure && v.departure.scheduled;\n    const minutosParaSalida = scheduled ? Math.round((new Date(scheduled).getTime() - Date.now()) / 60000) : 999;\n    return {\n      id_vuelo: (v.flight && v.flight.iata) || 'DESCONOCIDO',\n      aerolinea: (v.airline && v.airline.name) || 'Desconocida',\n      tipo_aeronave: (v.aircraft && v.aircraft.iata) || 'No informado',\n      estado_operativo: minutosParaSalida <= 20 ? 'listo_para_pushback' : 'embarcando',\n      hora_programada_original: scheduled || null,\n    };\n  });\n\nconst vuelosActivos = vuelosEnAproximacion.concat(vuelosEnTierra);\n\n// --- Mismo listado, en el formato que espera \"Evaluar Riesgo Meteorologico\" ---\nconst vuelos_programados = vuelosActivos.map((v) => ({\n  vuelo: v.id_vuelo,\n  aerolinea: v.aerolinea,\n  aeronave: v.tipo_aeronave,\n  matricula: 'No informado',\n  tipo_operacion: v.estado_operativo === 'en_aproximacion' ? 'aterrizaje' : 'despegue',\n  origen: v.estado_operativo === 'en_aproximacion' ? 'N/D' : config.aeropuerto_iata,\n  destino: v.estado_operativo === 'en_aproximacion' ? config.aeropuerto_iata : 'N/D',\n  hora_programada_utc: v.hora_programada_original,\n  posicion_rampa: 'N/D',\n  estado: v.estado_operativo,\n}));\n\n// Cachear TODO (los dos formatos) para las ejecuciones (cada 10s) que no\n// necesiten volver a golpear las APIs externas.\nconst data = $getWorkflowStaticData('global');\ndata.ultimaConsultaApisTimestamp = Date.now();\ndata.meteorologiaCacheada = meteorologia;\ndata.vuelosActivosCacheados = vuelosActivos;\ndata.reporteMeteorologicoCacheado = reporte_meteorologico;\ndata.vuelosProgramadosCacheados = vuelos_programados;\n\nreturn [{ json: { meteorologia, vuelos_activos: vuelosActivos, reporte_meteorologico, vuelos_programados } }];"
-      },
-      "id": "node-code-normalizar",
-      "name": "Normalizar Datos de APIs",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1280,
-        1300
-      ]
-    },
-    {
-      "parameters": {
-        "language": "javaScript",
-        "jsCode": "const cache = $json;\nreturn [\n  {\n    json: {\n      meteorologia: cache.meteorologia_cacheada,\n      vuelos_activos: cache.vuelos_activos_cacheados,\n      reporte_meteorologico: cache.reporte_meteorologico_cacheado,\n      vuelos_programados: cache.vuelos_programados_cacheados,\n    },\n  },\n];"
-      },
-      "id": "node-code-usar-cache",
-      "name": "Usar Datos en Cache",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        840,
-        1500
-      ]
-    },
-    {
-      "parameters": {
-        "operation": "splitOutItems",
-        "fieldToSplitOut": "vuelos_activos",
-        "options": {}
-      },
-      "id": "node-itemlists-vuelos",
-      "name": "Desarmar Vuelos Activos",
-      "type": "n8n-nodes-base.itemLists",
-      "typeVersion": 3,
-      "position": [
-        1500,
-        1300
-      ]
-    },
-    {
-      "parameters": {
-        "mode": "rules",
-        "rules": {
-          "values": [
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict"
-                },
-                "conditions": [
-                  {
-                    "id": "t1",
-                    "leftValue": "={{ $json.estado_operativo }}",
-                    "rightValue": "en_aproximacion",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "Rama A - En Aproximacion"
-            }
-          ]
-        },
-        "options": {
-          "fallbackOutput": "extra",
-          "renameFallbackOutput": "Rama B - En Tierra"
         }
       },
-      "id": "node-switch-triage",
-      "name": "Switch Triage por Estado",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3,
-      "position": [
-        1720,
-        1300
-      ]
-    },
-    {
-      "parameters": {
-        "language": "javaScript",
-        "jsCode": "const DEMORA_ESTIMADA_MINUTOS = 90;\n\nconst vuelo = $json;\nconst etdOriginal = new Date(vuelo.hora_programada_original);\nconst nuevoEtd = new Date(etdOriginal.getTime() + DEMORA_ESTIMADA_MINUTOS * 60000);\n\nreturn [\n  {\n    json: {\n      id_vuelo: vuelo.id_vuelo,\n      aerolinea: vuelo.aerolinea,\n      estado_operativo: vuelo.estado_operativo,\n      hora_programada_original: vuelo.hora_programada_original,\n      demora_aplicada_minutos: DEMORA_ESTIMADA_MINUTOS,\n      nuevo_ETD_estimado: nuevoEtd.toISOString(),\n    },\n  },\n];"
-      },
-      "id": "node-code-nuevo-etd",
-      "name": "Calcular Nuevo ETD",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1940,
-        1400
-      ]
-    },
-    {
-      "parameters": {
-        "language": "javaScript",
-        "jsCode": "const estacion = ($json.reporte_meteorologico && $json.reporte_meteorologico.estacion) || 'INCIDENTE';\nconst fecha = new Date().toISOString().slice(0, 10);\nconst nombreArchivo = `Reporte Riesgos - ${estacion} - ${fecha}.pdf`;\n\nreturn {\n  json: $json,\n  binary: {\n    data: {\n      ...$binary.data,\n      fileName: nombreArchivo,\n      mimeType: 'application/pdf',\n    },\n  },\n};"
-      },
-      "id": "node-code-nombrar-pdf",
-      "name": "Nombrar Archivo PDF",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1340,
-        620
-      ]
-    },
-    {
-      "parameters": {},
-      "id": "node-noop-aproximacion",
-      "name": "Vuelos en Aproximacion (Sin Accion Automatica)",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
-      "position": [
-        1940,
-        1180
-      ]
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "// Llama a Ollama (IA local) UNA vez por incidente, en serie (await en un for),\n// para no saturar el unico slot de inferencia del contenedor (VM sin GPU, 2 vCPU).\n// Si una llamada falla o tarda demas, ese incidente cae a un valor por defecto\n// seguro (pista_cerrada:false) en vez de abortar toda la ejecucion.\n\nconst SYSTEM_PROMPT = \"Sos un sistema experto en extraccion de datos aeronauticos (NOTAM). Tu unica tarea es leer el texto crudo de un NOTAM y devolver EXCLUSIVAMENTE un objeto JSON valido, sin texto adicional, sin explicaciones, sin markdown, sin backticks.\\n\\nEsquema exacto de salida (todas las claves son obligatorias):\\n{\\n  \\\"aeropuerto_afectado\\\": string (codigo ICAO de 4 letras, o \\\"DESCONOCIDO\\\" si no se puede determinar),\\n  \\\"pista_afectada\\\": string (ej. \\\"11/29\\\", o \\\"N/D\\\" si no aplica o no se menciona),\\n  \\\"motivo\\\": string (resumen breve en espanol del contenido del segmento E) del NOTAM, en pocas palabras, describiendo la causa real: p. ej. \\\"cierre por tormenta y windshear\\\", \\\"niebla, visibilidad bajo minimos\\\", \\\"luces de calle de rodaje fuera de servicio por mantenimiento\\\"),\\n  \\\"pista_cerrada\\\": boolean (true unicamente si el segmento E) indica cierre total de una pista, ej. contiene \\\"RWY ... CLSD\\\"; false si es una restriccion parcial, mantenimiento de taxiway/luces, o no aplica),\\n  \\\"severidad\\\": \\\"BAJA\\\" | \\\"MEDIA\\\" | \\\"ALTA\\\"\\n}\\n\\nReglas:\\n- El codigo ICAO del aeropuerto afectado esta casi siempre en el segmento Q), inmediatamente despues de \\\"Q)\\\". Ejemplo: en \\\"Q)SAEZ/QMRLC/...\\\" el aeropuerto es SAEZ. Usa ese codigo para \\\"aeropuerto_afectado\\\".\\n- En \\\"pista_afectada\\\" escribi solo el numero de pista (ej \\\"11/29\\\"), sin la palabra RWY. Si no hay pista mencionada usa \\\"N/D\\\".\\n- No inventes datos que no esten en el texto: usa \\\"DESCONOCIDO\\\" o \\\"N/D\\\" cuando corresponda.\\n- Tu respuesta debe empezar con \\\"{\\\" y terminar con \\\"}\\\". Nada de texto antes o despues.\";\n\nconst items = $input.all();\nconst resultados = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n  try {\n    const respuesta = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'http://ollama:11434/api/chat',\n      body: {\n        model: 'qwen2.5:1.5b-instruct-q4_0',\n        stream: false,\n        format: 'json',\n        messages: [\n          { role: 'system', content: SYSTEM_PROMPT },\n          { role: 'user', content: item.json.notam_crudo },\n        ],\n      },\n      json: true,\n      timeout: 60000,\n    });\n    resultados.push({ json: respuesta, pairedItem: i });\n  } catch (error) {\n    resultados.push({\n      json: {\n        message: { role: 'assistant', content: '{}' },\n        error: 'Fallo la llamada a Ollama: ' + error.message,\n      },\n      pairedItem: i,\n    });\n  }\n}\n\nreturn resultados;"
-      },
-      "id": "node-openai-notam",
-      "name": "Extraer NOTAM con IA",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        420,
-        900
-      ]
-    },
-    {
-      "parameters": {
-        "language": "javaScript",
-        "jsCode": "function haversineKm(lat1, lon1, lat2, lon2) {\n  const R = 6371;\n  const toRad = (deg) => (deg * Math.PI) / 180;\n  const dLat = toRad(lat2 - lat1);\n  const dLon = toRad(lon2 - lon1);\n  const a =\n    Math.sin(dLat / 2) ** 2 +\n    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;\n  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));\n  return R * c;\n}\n\nconst MARGEN_SEGURIDAD_KM = 50;\n\n// El nodo de IA reemplaza $json por su propia respuesta -- el incidente\n// original (con tormenta_activa y vuelos_en_ruta) se recupera referenciando\n// el trigger directamente. Se usa `.item` (no `.first()`) para que, con 17\n// incidentes pineados, cada ejecucion tome el incidente que le corresponde a\n// ESTA rama puntual, no siempre el primero del pinData.\nconst incidente = $('Ingesta de Reporte (Manual Trigger)').item.json;\nconst tormenta = incidente.tormenta_activa;\nconst vuelos = incidente.vuelos_en_ruta || [];\n\n// Respuesta cruda de la IA: la forma exacta puede variar segun la version del\n// nodo OpenAI de n8n, se prueban las variantes mas comunes antes de fallar.\nconst respuestaIA = $json;\nconst textoIA =\n  (respuestaIA.message && respuestaIA.message.content) ||\n  respuestaIA.content ||\n  respuestaIA.text ||\n  '';\n\nlet notam = {\n  aeropuerto_afectado: 'DESCONOCIDO',\n  pista_afectada: 'N/D',\n  motivo: 'No se pudo interpretar la respuesta de la IA',\n  pista_cerrada: false,\n  severidad: 'BAJA',\n};\n\ntry {\n  notam = JSON.parse(textoIA);\n} catch (e) {\n  // Se deja el valor por defecto (pista_cerrada: false): un NOTAM mal\n  // interpretado por la IA no puede, por si solo, forzar un desvio.\n}\n\nconst vuelosEvaluados = vuelos.map((vuelo) => {\n  const distanciaKm = haversineKm(vuelo.latitud, vuelo.longitud, tormenta.latitud, tormenta.longitud);\n  const alertaColision = distanciaKm <= tormenta.radio_impacto_km + MARGEN_SEGURIDAD_KM;\n  const pistaCerradaEnDestino = notam.pista_cerrada === true && vuelo.destino === notam.aeropuerto_afectado;\n  const desvioRequerido = alertaColision || pistaCerradaEnDestino;\n\n  return {\n    id_vuelo: vuelo.id_vuelo,\n    destino: vuelo.destino,\n    altitud_ft: vuelo.altitud_ft,\n    distancia_a_tormenta_km: Math.round(distanciaKm),\n    radio_impacto_km: tormenta.radio_impacto_km,\n    alerta_colision_climatica: alertaColision,\n    pista_cerrada_en_destino: pistaCerradaEnDestino,\n    notam_aeropuerto_afectado: notam.aeropuerto_afectado,\n    notam_motivo: notam.motivo,\n    notam_severidad: notam.severidad,\n    desvio_requerido: desvioRequerido,\n    accion_sugerida: desvioRequerido ? 'Desviar a aeropuerto alterno (Reroute)' : 'Continuar ruta normal',\n  };\n});\n\nreturn vuelosEvaluados.map((v) => ({ json: v }));"
-      },
-      "id": "node-code-combinar-notam-geo",
-      "name": "Combinar NOTAM y Evaluar Colision Climatica",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        660,
-        900
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "desvio1",
-              "leftValue": "={{ $json.desvio_requerido }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "node-if-motor-decision",
-      "name": "Motor de Decision - Triage Final",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        900,
-        900
-      ]
-    },
-    {
-      "parameters": {
-        "resource": "message",
-        "operation": "sendMessage",
-        "chatId": "7726117557",
-        "text": "={{ '🚨 DESVIO REQUERIDO - ' + $json.id_vuelo + '\\n\\n' + 'Destino original: ' + $json.destino + '\\nAltitud: ' + $json.altitud_ft + ' ft\\n\\n' + ($json.alerta_colision_climatica ? ('Colision climatica: SI (' + $json.distancia_a_tormenta_km + ' km de la tormenta, radio+margen ' + ($json.radio_impacto_km + 50) + ' km)\\n') : '') + ($json.pista_cerrada_en_destino ? ('Pista cerrada en destino segun NOTAM: SI (' + $json.notam_motivo + ')\\n') : '') + '\\nAccion sugerida: ' + $json.accion_sugerida }}",
-        "additionalFields": {
-          "appendAttribution": false
-        }
-      },
-      "id": "node-telegram-emergencia-desvio",
-      "name": "Alertar Emergencia - Desvio a Alterno",
-      "type": "n8n-nodes-base.telegram",
+      "id": "node-schedule-trigger",
+      "name": "Disparador Programado",
+      "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        1140,
-        820
-      ],
-      "credentials": {
-        "telegramApi": {
-          "id": "YlPaHlswUd7aLC84",
-          "name": "Telegram account 3"
-        }
-      }
-    },
-    {
-      "parameters": {},
-      "id": "node-noop-vuelo-normal",
-      "name": "Vuelo Sin Riesgo Detectado",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
-      "position": [
-        1140,
-        980
+        176,
+        1472
       ]
     }
   ],
-  "connections": {
-    "Ingesta de Reporte (Manual Trigger)": {
-      "main": [
-        [
-          {
-            "node": "Evaluar Riesgo Meteorologico",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Extraer NOTAM con IA",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Disparador Programado (Cada 10s)": {
-      "main": [
-        [
-          {
-            "node": "Configuracion (Editar Aca)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Configuracion (Editar Aca)": {
-      "main": [
-        [
-          {
-            "node": "Verificar Necesidad de Refresco",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Verificar Necesidad de Refresco": {
-      "main": [
-        [
-          {
-            "node": "Necesita Refresco de APIs?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Necesita Refresco de APIs?": {
-      "main": [
-        [
-          {
-            "node": "Consultar Clima Real (OpenWeatherMap)",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Consultar Vuelos Arribos Real (AviationStack)",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Consultar Vuelos Salidas Real (AviationStack)",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Usar Datos en Cache",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Consultar Vuelos Salidas Real (AviationStack)": {
-      "main": [
-        [
-          {
-            "node": "Normalizar Datos de APIs",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Normalizar Datos de APIs": {
-      "main": [
-        [
-          {
-            "node": "Desarmar Vuelos Activos",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Evaluar Riesgo Meteorologico",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Usar Datos en Cache": {
-      "main": [
-        [
-          {
-            "node": "Desarmar Vuelos Activos",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Evaluar Riesgo Meteorologico",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Desarmar Vuelos Activos": {
-      "main": [
-        [
-          {
-            "node": "Switch Triage por Estado",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Switch Triage por Estado": {
-      "main": [
-        [
-          {
-            "node": "Vuelos en Aproximacion (Sin Accion Automatica)",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Calcular Nuevo ETD",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Evaluar Riesgo Meteorologico": {
-      "main": [
-        [
-          {
-            "node": "Switch Nivel de Riesgo",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Switch Nivel de Riesgo": {
-      "main": [
-        [
-          {
-            "node": "Notificar Cierre a Operaciones de Pista",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Crear Ticket de Mantenimiento",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Construir HTML del Reporte",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Construir HTML del Reporte",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Sin Accion Requerida",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Construir HTML del Reporte": {
-      "main": [
-        [
-          {
-            "node": "Generar PDF (Gotenberg)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Generar PDF (Gotenberg)": {
-      "main": [
-        [
-          {
-            "node": "Nombrar Archivo PDF",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Nombrar Archivo PDF": {
-      "main": [
-        [
-          {
-            "node": "Enviar Alerta a Terminal",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Enviar Reporte PDF por Telegram",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Extraer NOTAM con IA": {
-      "main": [
-        [
-          {
-            "node": "Combinar NOTAM y Evaluar Colision Climatica",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Combinar NOTAM y Evaluar Colision Climatica": {
-      "main": [
-        [
-          {
-            "node": "Motor de Decision - Triage Final",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Motor de Decision - Triage Final": {
-      "main": [
-        [
-          {
-            "node": "Alertar Emergencia - Desvio a Alterno",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Vuelo Sin Riesgo Detectado",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
-  },
-  "active": false,
-  "settings": {
-    "executionOrder": "v1"
-  },
   "pinData": {
     "Ingesta de Reporte (Manual Trigger)": [
       {
@@ -2350,5 +2082,326 @@
         }
       }
     ]
-  }
+  },
+  "connections": {
+    "Ingesta de Reporte (Manual Trigger)": {
+      "main": [
+        [
+          {
+            "node": "Evaluar Riesgo Meteorologico",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extraer NOTAM con IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Necesidad de Refresco": {
+      "main": [
+        [
+          {
+            "node": "Necesita Refresco de APIs?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Necesita Refresco de APIs?": {
+      "main": [
+        [
+          {
+            "node": "Consultar Clima Real (OpenWeatherMap)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Consultar Vuelos Arribos Real (AviationStack)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Consultar Vuelos Salidas Real (AviationStack)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Usar Datos en Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Vuelos Salidas Real (AviationStack)": {
+      "main": [
+        [
+          {
+            "node": "Esperar Datos de las 3 APIs",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Normalizar Datos de APIs": {
+      "main": [
+        [
+          {
+            "node": "Desarmar Vuelos Activos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Evaluar Riesgo Meteorologico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Usar Datos en Cache": {
+      "main": [
+        [
+          {
+            "node": "Desarmar Vuelos Activos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Evaluar Riesgo Meteorologico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Desarmar Vuelos Activos": {
+      "main": [
+        [
+          {
+            "node": "Switch Triage por Estado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Triage por Estado": {
+      "main": [
+        [
+          {
+            "node": "Vuelos en Aproximacion (Sin Accion Automatica)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Calcular Nuevo ETD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluar Riesgo Meteorologico": {
+      "main": [
+        [
+          {
+            "node": "Switch Nivel de Riesgo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Nivel de Riesgo": {
+      "main": [
+        [
+          {
+            "node": "Notificar Cierre a Operaciones de Pista",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Crear Ticket de Mantenimiento",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Construir HTML del Reporte",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Construir HTML del Reporte",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sin Accion Requerida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construir HTML del Reporte": {
+      "main": [
+        [
+          {
+            "node": "Generar PDF (Gotenberg)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar PDF (Gotenberg)": {
+      "main": [
+        [
+          {
+            "node": "Nombrar Archivo PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nombrar Archivo PDF": {
+      "main": [
+        [
+          {
+            "node": "Enviar Alerta a Terminal",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Enviar Reporte PDF por Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer NOTAM con IA": {
+      "main": [
+        [
+          {
+            "node": "Combinar NOTAM y Evaluar Colision Climatica",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combinar NOTAM y Evaluar Colision Climatica": {
+      "main": [
+        [
+          {
+            "node": "Motor de Decision - Triage Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Motor de Decision - Triage Final": {
+      "main": [
+        [
+          {
+            "node": "Alertar Emergencia - Desvio a Alterno",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Vuelo Sin Riesgo Detectado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuracion": {
+      "main": [
+        [
+          {
+            "node": "Verificar Necesidad de Refresco",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Disparador Programado": {
+      "main": [
+        [
+          {
+            "node": "Configuracion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Clima Real (OpenWeatherMap)": {
+      "main": [
+        [
+          {
+            "node": "Esperar Datos de las 3 APIs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Vuelos Arribos Real (AviationStack)": {
+      "main": [
+        [
+          {
+            "node": "Esperar Datos de las 3 APIs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Esperar Datos de las 3 APIs": {
+      "main": [
+        [
+          {
+            "node": "Normalizar Datos de APIs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "6e033d7d-c6ea-4b4e-83a1-32f26fa993d6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f5fe8fe59f06d90a35d7b107afdc5bb89b7e37fbb11a358de0ab3f351b69e7ba"
+  },
+  "nodeGroups": [],
+  "id": "XQjYNCQL5CbdtOYx",
+  "tags": []
 }
