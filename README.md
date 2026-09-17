@@ -74,6 +74,13 @@ Laboratorio demostrativo de un simulador de filtros ATS (Applicant Tracking Syst
 
 ---
 
+### [Resumen IAR (generador)](./Resumen%20IAR%20(generador))
+Conjunto de scripts que construyen el resumen completo de Inteligencia Artificial como documento Word (~104 páginas, 49 figuras) a partir del material de la cátedra: presentaciones, notebooks de Colab y bibliografía. Dibuja todas las figuras por código a escala 1:1, inserta contenido nuevo sobre un .docx ya editado a mano sin regenerarlo, y audita el documento contra el programa analítico para detectar temas faltantes.
+
+**Tecnologías:** Python, python-docx, matplotlib, PyMuPDF, lxml, markitdown, Word COM (PowerShell)
+
+---
+
 ## 🎓 Contexto Académico
 
 Estos proyectos fueron desarrollados como trabajos prácticos de diferentes materias:
@@ -86,6 +93,7 @@ Los siguientes proyectos no son trabajos de cursada, sino desarrollos propios y 
 - **Automatización (n8n)** - Aeropuertos (Cierre de Rampa), Trivia por Telegram
 - **HackerTech (UTN-FRC)** - EscapeRoomHackerTech, HackerTech
 - **IA / Seguridad de IA** - Charla (Prompt Injection)
+- **Herramientas de estudio** - Resumen IAR (generador)
 
 ## 🛠️ Tecnologías Principales
 
