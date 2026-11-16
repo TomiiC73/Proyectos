@@ -74,6 +74,13 @@ Laboratorio demostrativo de un simulador de filtros ATS (Applicant Tracking Syst
 
 ---
 
+### [IA - Modelo para detectar objetos en imágenes](./IA%20-%20Modelo%20para%20detectar%20objetos%20en%20imagenes)
+TPI de Inteligencia Artificial sobre comprensión visual de escenas. Pipeline que combina detectores open-vocabulary (SAM 3, OWLv2, Grounding DINO y YOLOE) con segmentación SAM2.1 para convertir cada imagen en un SceneJSON validado (objetos, máscaras, color, tamaño, posición y relaciones espaciales) y responder preguntas sobre la escena en modo determinista o con un LLM (Qwen3). Incluye análisis exploratorio, más de 35 experimentos documentados y reporte técnico para la competencia de Kaggle.
+
+**Tecnologías:** Python, PyTorch, Transformers, Ultralytics, SAM 3 / SAM2.1, OWLv2, Grounding DINO, YOLOE, Qwen3, Jupyter
+
+---
+
 
 ## 🎓 Contexto Académico
 
@@ -81,6 +88,7 @@ Estos proyectos fueron desarrollados como trabajos prácticos de diferentes mate
 - **Backend de Aplicaciones** - Agencias
 - **Diseño de Sistemas de Información** - BonVino  
 - **Desarrollo y Operaciones (DevOps)** - Proyectos Docker y GitLab CI/CD
+- **Inteligencia Artificial** - IA - Modelo para detectar objetos en imágenes
 - **Seguridad de Sistemas** - Banco (Seguridad), TPI-SDS-main
 
 Los siguientes proyectos no son trabajos de cursada, sino desarrollos propios y material para eventos de extensión:
@@ -96,7 +104,7 @@ Los siguientes proyectos no son trabajos de cursada, sino desarrollos propios y 
 - **Bases de Datos:** MySQL, SQLite
 - **DevOps:** Docker, Docker Compose, GitLab CI/CD, Nginx, Vercel
 - **Seguridad:** OAuth2, JWT, WebAuthn/FIDO2, Docker Secrets, Trivy, Checkov
-- **Automatización / IA:** n8n, Telegram Bot API, Groq SDK (LLM)
+- **Automatización / IA:** n8n, Telegram Bot API, Groq SDK (LLM), PyTorch, SAM 3, OWLv2, YOLOE
 - **Testing:** JUnit, Postman, Requests
 
 ## 📝 Notas
