@@ -89,7 +89,7 @@ Estos proyectos fueron desarrollados como trabajos prácticos de diferentes mate
 - **Diseño de Sistemas de Información** - BonVino  
 - **Desarrollo y Operaciones (DevOps)** - Proyectos Docker y GitLab CI/CD
 - **Inteligencia Artificial** - IA - Modelo para detectar objetos en imágenes
-- **Seguridad de Sistemas** - Banco (Seguridad), TPI-SDS-main
+- **Seguridad en el Desarrollo de Software** - Banco (Seguridad), TPI-SDS-main
 
 Los siguientes proyectos no son trabajos de cursada, sino desarrollos propios y material para eventos de extensión:
 - **Automatización (n8n)** - Aeropuertos (Cierre de Rampa), Trivia por Telegram
