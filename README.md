@@ -91,12 +91,6 @@ Estos proyectos fueron desarrollados como trabajos prácticos de diferentes mate
 - **Inteligencia Artificial** - IA - Modelo para detectar objetos en imágenes
 - **Seguridad en el Desarrollo de Software** - Banco (Seguridad), TPI-SDS-main
 
-Los siguientes proyectos no son trabajos de cursada, sino desarrollos propios y material para eventos de extensión:
-- **Automatización (n8n)** - Aeropuertos (Cierre de Rampa), Trivia por Telegram
-- **HackerTech (UTN-FRC)** - EscapeRoomHackerTech, HackerTech
-- **IA / Seguridad de IA** - Charla (Prompt Injection)
-- **Herramientas de estudio** - Resumen IAR (generador)
-
 ## 🛠️ Tecnologías Principales
 
 - **Backend:** Java (Spring Boot), Python (Flask, FastAPI), Node.js (Express)
@@ -106,7 +100,3 @@ Los siguientes proyectos no son trabajos de cursada, sino desarrollos propios y 
 - **Seguridad:** OAuth2, JWT, WebAuthn/FIDO2, Docker Secrets, Trivy, Checkov
 - **Automatización / IA:** n8n, Telegram Bot API, Groq SDK (LLM), PyTorch, SAM 3, OWLv2, YOLOE
 - **Testing:** JUnit, Postman, Requests
-
-## 📝 Notas
-
-Cada carpeta de proyecto contiene su propio README con instrucciones detalladas de configuración y ejecución.
